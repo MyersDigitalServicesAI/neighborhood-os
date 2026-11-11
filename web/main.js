@@ -8,12 +8,14 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor']);
+const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
 let version = 0;
 let refreshing;
 let noticeTimer;
+let synced = 0;
 const endpoint = '/api/core?action=';
 
 class ApiError extends Error {
@@ -53,6 +55,34 @@ function show(message) {
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(()=>notice.classList.remove('visible'),4700);
 }
+async function sync() {
+  context = await rpc('bootstrap');
+  synced = Date.now();
+}
+function encode(blob) {
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=>resolve(String(reader.result).split(',')[1]);
+    reader.onerror = ()=>reject(new ApiError(400,'That photo could not be read.'));
+    reader.readAsDataURL(blob);
+  });
+}
+// Photos are scaled down in the browser so only a small JPEG ever leaves the device.
+async function shrink(file) {
+  let picture;
+  try { picture = await createImageBitmap(file); }
+  catch { throw new ApiError(400,'That file is not a photo this browser can open.'); }
+  for (const [edge,quality] of [[1280,.82],[1280,.66],[960,.7],[720,.62],[560,.5]]) {
+    const scale = Math.min(1,edge/Math.max(picture.width,picture.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1,Math.round(picture.width*scale));
+    canvas.height = Math.max(1,Math.round(picture.height*scale));
+    canvas.getContext('2d').drawImage(picture,0,0,canvas.width,canvas.height);
+    const blob = await new Promise((resolve)=>canvas.toBlob(resolve,'image/jpeg',quality));
+    if (blob && blob.size <= 290000) return { mime:'image/jpeg',data:await encode(blob) };
+  }
+  throw new ApiError(400,'That photo is too detailed to send. Try a different one.');
+}
 function setEvidence(formNode) {
   const container = formNode.querySelector('.evidence-fields');
   if (!container) return;
@@ -89,21 +119,46 @@ async function render() {
   const area = context.areas.find((a)=>a.id===member.area_id)?.name ?? 'Your neighborhood';
   const id = arg;
   try {
+    if (Date.now() - synced > 45000) await sync();
     switch (key) {
       case 'requests':
       case 'feed':
       case '': {
         page = key === 'requests' ? 'requests' : 'feed';
-        const kind = page === 'requests' ? 'request' : ['discussion','event'].includes(arg) ? arg : '';
-        const items = await rpc('feed',{kind});
-        content = view.feedView(items,area,page,kind);
-        aside = view.feedAside(area);
+        const kind = page === 'requests' ? 'request' : feedKinds.has(arg) ? arg : '';
+        const [items,alerts] = await Promise.all([rpc('feed',{kind}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1'})]);
+        content = view.feedView(items,area,page,kind,alerts.slice(0,3));
+        aside = view.feedAside(area,context.member);
         break;
       }
-      case 'new':
-        page = arg==='request' ? 'requests' : 'feed';
-        content = view.composer(typeInfo[arg] ? arg : 'discussion');
+      case 'market':
+        content = view.marketView(await rpc('feed',{kind:'sale'}),'sale');
         break;
+      case 'new':
+        page = arg==='request' ? 'requests' : arg==='sale' ? 'market' : 'feed';
+        content = view.composer(typeInfo[arg] ? arg : 'discussion',await rpc('my_businesses'));
+        break;
+      case 'notifications': {
+        const list = await rpc('notifications');
+        content = view.notificationsView(list);
+        if (list.some((n)=>!n.read)) {
+          await rpc('read_notifications');
+          context.unread = 0;
+        }
+        break;
+      }
+      case 'search': {
+        const q = (params.get('q') ?? '').trim();
+        content = view.searchView(q,q.length > 1 ? await rpc('search',{q}) : null);
+        break;
+      }
+      case 'neighbor': {
+        const [profile,posts] = await Promise.all([rpc('profile',{id}),rpc('feed',{author:id})]);
+        if (!profile) throw new ApiError(404,'Neighbor unavailable.');
+        page = id === member.id ? 'account' : 'feed';
+        content = view.profileView(profile,posts,member.id);
+        break;
+      }
       case 'post': {
         const [post,businesses] = await Promise.all([rpc('post',{id}),rpc('my_businesses')]);
         page = post.kind==='request' ? 'requests' : 'feed';
@@ -113,7 +168,8 @@ async function render() {
       case 'directory': {
         const q = params.get('q') ?? '';
         const category = params.get('category') ?? '';
-        content = view.directoryView(await rpc('directory',{q,category}),q,category);
+        const vetted = params.get('vetted') ? '1' : '';
+        content = view.directoryView(await rpc('directory',{q,category,vetted}),q,category,vetted);
         break;
       }
       case 'business':
@@ -173,13 +229,16 @@ async function render() {
 }
 
 const messages = {
-  decide_content:'Content decision recorded.',report_content:'Report sent to staff.',close_post:'Request closed.', reply:'Reply posted.', apply_vetting:'Application sent to staff.',
+  delete_reply:'Reply deleted.',update_profile:'Profile saved.',request_residency:'Postcard requested.',cancel_residency:'Verification withdrawn and address deleted.',
+  confirm_residency:'Address verified. Your address record has been deleted.',decide_residency:'Recorded. The address has been erased.',vote:'Vote recorded.',
+  decide_content:'Content decision recorded.',report_content:'Report sent to staff.',close_post:'Post updated.', reply:'Reply posted.', apply_vetting:'Application sent to staff.',
   submit_review:'Review sent for human moderation.', report_review:'Report sent to staff.', appeal:'Appeal submitted.',
   decide_review:'Review decision recorded.', decide_appeal:'Appeal decision recorded.', decide_vetting:'Vetting decision recorded.',
   update_business:'Business profile saved.', block:'Messages blocked.', unblock:'Messages unblocked.'
 };
 const pages = {
   'feed-more': {op:'feed',target:'feed-results',render:view.postCard,size:25},
+  'market-more': {op:'feed',target:'market-results',render:view.marketCard,size:25},
   'directory-more': {op:'directory',target:'directory-results',render:view.businessCard,size:25},
   'reviews-more': {op:'business',target:'review-results',items:'reviews',render:view.reviewCard,size:25},
   'threads-more': {op:'threads',target:'thread-results',render:view.threadRow,size:30},
@@ -187,26 +246,25 @@ const pages = {
 };
 async function loadMore(op,data,element) {
   const page = pages[op];
-  const {key,arg,params} = route();
-  const filters = op==='feed-more' ? {kind:key==='requests'?'request':arg} :
-    op==='directory-more' ? {q:params.get('q'),category:params.get('category')} : {};
-  const result = await rpc(page.op,{...data,...filters});
+  const result = await rpc(page.op,data);
   const items = page.items ? result[page.items] : result;
   if (!element.isConnected) return;
   const olderMessages = op==='messages-more';
   document.querySelector('#'+page.target)?.insertAdjacentHTML(olderMessages?'afterbegin':'beforeend',items.map(page.render).join(''));
   if (items.length < page.size) return element.remove();
   const next = olderMessages ? items[0] : items.at(-1);
-  const extra = data.id ? '<input type="hidden" name="id" value="'+esc(data.id)+'">' :
-    next.name ? '<input type="hidden" name="afterName" value="'+esc(next.name)+'">' : '';
+  const carried = {...data,...(op==='directory-more' ? {afterName:next.name} : {})};
+  const extra = Object.entries(carried).filter(([name])=>name!=='before'&&name!=='cursor')
+    .map(([name,value])=>'<input type="hidden" name="'+esc(name)+'" value="'+esc(value)+'">').join('');
   element.outerHTML = view.pager(op,next,extra);
 }
 async function submit(operation,data,element) {
   if (operation === 'retry') return render();
   if (pages[operation]) return loadMore(operation,data,element);
   if (operation === 'search_directory') {
-    return go('directory?'+new URLSearchParams({q:data.q.trim(),category:data.category}));
+    return go('directory?'+new URLSearchParams({q:data.q.trim(),category:data.category,...(data.vetted?{vetted:'1'}:{})}));
   }
+  if (operation === 'search') return go('search?'+new URLSearchParams({q:data.q.trim()}));
   if (operation === 'signup' || operation === 'recover') {
     await raw(operation,data);
     element.reset();
@@ -215,7 +273,7 @@ async function submit(operation,data,element) {
   }
   if (operation === 'login') {
     await raw('login',data);
-    context = await rpc('bootstrap');
+    await sync();
     return go('feed');
   }
   if (operation === 'logout') {
@@ -223,15 +281,43 @@ async function submit(operation,data,element) {
     context = null;
     return go('');
   }
+  if (data.photo instanceof File) {
+    const file = data.photo;
+    delete data.photo;
+    if (file.size) data.image = (await rpc('upload_image',await shrink(file))).id;
+  }
+  if (data.when) {
+    const starts = new Date(data.when);
+    if (Number.isNaN(starts.getTime())) throw new ApiError(400,'Choose when the event starts.');
+    data.when = starts.toISOString();
+  }
   const result = await rpc(operation,data);
+  if (result?.ok === false) throw new ApiError(400,result.message ?? 'Try again.');
   if (!element.isConnected) return;
   if (messages[operation]) show(messages[operation]);
   switch (operation) {
+    case 'react': {
+      const control = element.querySelector('button');
+      const on = control.getAttribute('aria-pressed') !== 'true';
+      const count = Math.max(0,(parseInt(control.textContent,10) || 0) + (on ? 1 : -1));
+      control.setAttribute('aria-pressed',String(on));
+      control.querySelector('span').textContent = count+' '+(count===1?'thank':'thanks');
+      return;
+    }
+    case 'delete_post':
+      show('Post deleted.');
+      return go('feed');
+    case 'update_profile':
+    case 'request_residency':
+    case 'cancel_residency':
+    case 'confirm_residency':
+      await sync();
+      return render();
     case 'reset-password':
       show('Password saved.');
       return go('feed');
     case 'join':
-      context = await rpc('bootstrap');
+      await sync();
       return go('feed');
     case 'create_post':
       show('Post published.');
@@ -242,10 +328,9 @@ async function submit(operation,data,element) {
     case 'message':
       show('Message sent.');
       return go('thread/'+result.id);
-    case 'checkout':
-    case 'billing_portal': {
+    case 'checkout': {
       const destination = new URL(result.url);
-      if (destination.protocol!=='https:' || !['checkout.stripe.com','billing.stripe.com'].includes(destination.hostname)) {
+      if (destination.protocol!=='https:' || destination.hostname!=='checkout.stripe.com') {
         throw new ApiError(502,'Billing returned an invalid redirect.');
       }
       location.assign(destination);
@@ -295,7 +380,7 @@ async function start() {
   app.innerHTML = view.landing(config);
   try {
     config = await raw('config');
-    if (config.configured) context = await rpc('bootstrap').catch(()=>null);
+    if (config.configured) await sync().catch(()=>{ context = null; });
   } catch { /* The public introduction is available while account access recovers. */ }
   await render();
 }

@@ -112,6 +112,76 @@ test('desktop review submission, removal, independent appeal, and business vetti
   await page.getByRole('link',{name:'Businesses',exact:true}).click();
   await page.getByRole('link',{name:'Juniper Home Repair',exact:true}).click();
   await expect(page.getByText('I hired this fixture business', {exact:false})).toBeVisible();
-  await expect(page.getByText('Verified Business',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('Vetted Business',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('4.0 · 1 review')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('photo listing, thanks, poll, RSVP, safety alert, search, and verify-then-delete address check',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'ava');
+  await expect(page.getByRole('link',{name:/Water main break/}).first()).toBeVisible();
+  await page.screenshot({path:'test-results/feed-alert-mobile.png',fullPage:true});
+  const thanks = page.getByRole('button',{name:/thanks?$/}).first();
+  await thanks.click();
+  await expect(thanks).toHaveText('1 thank');
+  await expect(thanks).toHaveAttribute('aria-pressed','true');
+
+  await page.goto('/#new/sale');
+  await page.getByLabel('Title').fill('Vintage desk lamp');
+  await page.getByLabel('Price in dollars').fill('15');
+  await page.getByLabel('Details').fill('Brass base and a green shade. Works well.');
+  await page.getByLabel('Add a photo (optional)').setInputFiles({name:'lamp.png',mimeType:'image/png',buffer:Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==','base64')});
+  await page.getByRole('button',{name:'Publish post'}).click();
+  await expect(page.getByRole('heading',{name:'Vintage desk lamp'})).toBeVisible();
+  const picture = page.getByRole('img',{name:'Photo for Vintage desk lamp'});
+  await expect(picture).toBeVisible();
+  await expect.poll(()=>picture.evaluate((node)=>node.naturalWidth)).toBeGreaterThan(0);
+  await page.goto('/#market');
+  await expect(page.getByRole('link',{name:/\$15.*Vintage desk lamp/})).toBeVisible();
+  await page.screenshot({path:'test-results/market-mobile.png',fullPage:true});
+
+  await page.goto('/#feed/poll');
+  await page.getByRole('link',{name:'Which night works for a block meetup?'}).click();
+  await page.getByRole('button',{name:/Thursday/}).click();
+  await expect(page.getByText('1 vote · You can change your vote')).toBeVisible();
+  await page.goto('/#feed/event');
+  await page.getByRole('link',{name:'Saturday trail cleanup at Brookside'}).click();
+  await page.getByRole('button',{name:'I’m going · 0'}).click();
+  await expect(page.getByRole('button',{name:'You’re going · 1'})).toBeVisible();
+
+  await page.goto('/#notifications');
+  await expect(page.getByText('Safety alert in your neighborhood')).toBeVisible();
+  await page.goto('/#search?q=lamp');
+  await expect(page.getByRole('link',{name:'Vintage desk lamp',exact:true})).toBeVisible();
+
+  await page.goto('/#account');
+  await page.getByText('Verify my address').click();
+  await page.getByLabel('Mailing address in your neighborhood').fill('12 Fixture Way, Cleveland OH 44109');
+  await page.getByLabel('Use this address once to post my code, then delete it.').check();
+  await page.getByRole('button',{name:'Send my postcard'}).click();
+  await expect(page.getByText('Your postcard is being prepared.',{exact:false})).toBeVisible();
+  await logout(page);
+  await login(page,'rina');
+  await page.goto('/#moderation');
+  await expect(page.getByText('12 Fixture Way, Cleveland OH 44109')).toBeVisible();
+  const code = await page.locator('code').first().innerText();
+  await page.getByRole('button',{name:'Postcard mailed, erase address'}).click();
+  await expect(page.getByText('Recorded. The address has been erased.')).toBeVisible();
+  await expect(page.getByText('12 Fixture Way, Cleveland OH 44109')).toHaveCount(0);
+  await logout(page);
+  await login(page,'ava');
+  await page.goto('/#account');
+  await page.getByLabel('Postcard code').fill('ZZZZZZ');
+  await page.getByRole('button',{name:'Confirm my address'}).click();
+  await expect(page.getByText('That code does not match.',{exact:false})).toBeVisible();
+  await page.getByLabel('Postcard code').fill(code);
+  await page.getByRole('button',{name:'Confirm my address'}).click();
+  await expect(page.getByText('Verified neighbor',{exact:true}).first()).toBeVisible();
+  await page.screenshot({path:'test-results/account-verified-mobile.png',fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   expect(errors).toEqual([]);
 });
