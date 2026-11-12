@@ -118,6 +118,8 @@ async function render() {
   const {member} = context;
   const area = context.areas.find((a)=>a.id===member.area_id)?.name ?? 'Your neighborhood';
   const id = arg;
+  const reach = ['nearby','neo'].includes(params.get('in')) ? params.get('in') : '';
+  const scope = reach === 'neo' ? 'region' : reach;
   try {
     if (Date.now() - synced > 45000) await sync();
     switch (key) {
@@ -126,17 +128,17 @@ async function render() {
       case '': {
         page = key === 'requests' ? 'requests' : 'feed';
         const kind = page === 'requests' ? 'request' : feedKinds.has(arg) ? arg : '';
-        const [items,alerts] = await Promise.all([rpc('feed',{kind}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1'})]);
-        content = view.feedView(items,area,page,kind,alerts.slice(0,3));
+        const [items,alerts] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope})]);
+        content = view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby);
         aside = view.feedAside(area,context.member);
         break;
       }
       case 'market':
-        content = view.marketView(await rpc('feed',{kind:'sale'}),'sale');
+        content = view.marketView(await rpc('feed',{kind:'sale',scope}),'sale',reach,area,context.nearby);
         break;
       case 'new':
         page = arg==='request' ? 'requests' : arg==='sale' ? 'market' : 'feed';
-        content = view.composer(typeInfo[arg] ? arg : 'discussion',await rpc('my_businesses'));
+        content = view.composer(typeInfo[arg] ? arg : 'discussion',await rpc('my_businesses'),area);
         break;
       case 'notifications': {
         const list = await rpc('notifications');

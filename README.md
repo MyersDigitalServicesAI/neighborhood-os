@@ -5,6 +5,7 @@ A mobile-first Northeast Ohio neighborhood app. The initial pilot areas are Old 
 ## What is in the app
 
 - Neighborhood feed with discussions, events with RSVPs, polls, service requests, safety alerts, lost and found, and business updates. Posts can carry one photo. Neighbors can thank a post and reply in threads.
+- Three views of the feed and marketplace: your neighborhood, nearby neighborhoods, and all of Northeast Ohio. Nearby links live in `neighborhood.area_links`, seeded from the five closest neighborhood centres in each direction, and can be edited by an operator.
 - Marketplace for items for sale or free, with price, pickup area, photo, and a sold marker.
 - Business directory with free profiles (logo, phone, hours), human-moderated reviews with ratings, a vetted-only filter, and up to two business updates a week.
 - Notifications for replies, thanks, RSVPs, messages, safety alerts, review and vetting decisions. Search across posts, businesses and neighbors. Neighbor profiles with a short introduction.
@@ -29,7 +30,7 @@ For a specific system Chromium, set CHROMIUM_PATH. For local app testing against
 
 ## App and privacy boundaries
 
-- A confirmed Supabase identity and enrolled neighborhood membership are required for feeds, business directory, and messages. Profile enrollment starts invite-only. Community posts and directory entries are visible only within the selected neighborhood.
+- A confirmed Supabase identity and enrolled neighborhood membership are required for feeds, business directory, and messages. Profile enrollment starts invite-only. Each post carries an audience its author chooses: their neighborhood only, their neighborhood and nearby ones, or all of Northeast Ohio. The feed and marketplace can be switched between those three views. Posts written before this choice existed stay inside their neighborhood. The business directory and reviews stay local; a business page, a neighbor's profile and direct messages open across neighborhoods only through a post the member can see.
 - Residents can recommend anyone and reply using a personal account. Business profiles and replies are free. Linking an owned profile automatically adds an affiliation disclosure. A person without a profile can disclose a relevant affiliation on the reply.
 - One-to-one messages are visible in-app only to the two participants. Either participant can block future messages. Messages are stored in the database and are not end-to-end encrypted. Database operators retain infrastructure access.
 - A private SQL dispatcher enforces authorization on every operation. Client roles cannot query the private tables. The web API uses secure HttpOnly session cookies, origin checks, bounded payloads, and operation-specific database rate limits.
