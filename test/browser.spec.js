@@ -185,3 +185,43 @@ test('photo listing, thanks, poll, RSVP, safety alert, search, and verify-then-d
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   expect(errors).toEqual([]);
 });
+
+test('a post shared with nearby neighborhoods shows up in the Nearby and Northeast Ohio feeds next door',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'ava');
+  await page.goto('/#new/discussion');
+  await page.getByLabel('Title').fill('Porch sale this Saturday');
+  await page.getByLabel('Details').fill('Tools, books and a few chairs. Come say hello.');
+  await expect(page.getByLabel('Who can see this')).toHaveValue('nearby');
+  await page.getByRole('button',{name:'Publish post'}).click();
+  await expect(page.getByText('Posted in Old Brooklyn · shared with your neighborhood and nearby')).toBeVisible();
+  await page.goto('/#new/discussion');
+  await page.getByLabel('Title').fill('Citywide tool library idea');
+  await page.getByLabel('Details').fill('Would people across the county use one?');
+  await page.getByLabel('Who can see this').selectOption('region');
+  await page.getByRole('button',{name:'Publish post'}).click();
+  await expect(page.getByRole('heading',{name:'Citywide tool library idea'})).toBeVisible();
+  await logout(page);
+
+  await login(page,'taylor');
+  await expect(page.getByRole('link',{name:'Porch sale this Saturday'})).toHaveCount(0);
+  await page.getByRole('link',{name:'Nearby',exact:true}).click();
+  await expect(page.getByRole('link',{name:'Porch sale this Saturday'})).toBeVisible();
+  await expect(page.getByText('Old Brooklyn',{exact:false}).first()).toBeVisible();
+  await expect(page.getByText(/^Parma plus .*Old Brooklyn/)).toBeVisible();
+  await page.screenshot({path:'test-results/nearby-mobile.png',fullPage:true});
+  await page.getByRole('link',{name:'Northeast Ohio',exact:true}).click();
+  await expect(page.getByRole('link',{name:'Citywide tool library idea'})).toBeVisible();
+  await page.getByRole('link',{name:'Porch sale this Saturday'}).click();
+  await page.getByLabel('Your reply').fill('We will stop by from Parma.');
+  await page.getByRole('button',{name:'Post reply'}).click();
+  await expect(page.getByText('We will stop by from Parma.')).toBeVisible();
+  await page.getByRole('link',{name:'Message Ava M.'}).click();
+  await page.getByLabel('Your message').fill('What time does it start?');
+  await page.getByRole('button',{name:'Send message'}).click();
+  await expect(page.getByText('What time does it start?')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  expect(errors).toEqual([]);
+});

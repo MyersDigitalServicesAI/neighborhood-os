@@ -50,7 +50,8 @@ export function authView(mode,config) {
 export function information(route,signedIn) {
   const isPrivacy = route === 'privacy';
   const copy = isPrivacy ? [
-    ['What your neighbors see','Your display name, the short introduction you write, and the neighborhood you choose appear with local activity. Your account email is private.'],
+    ['What your neighbors see','Your display name, the short introduction you write, and the neighborhood you choose appear with your activity. Your account email is private.'],
+    ['How far a post travels','When you post you choose who can see it: your neighborhood only, your neighborhood and nearby ones, or all of Northeast Ohio. People who can see a post can reply to it, see your profile, and message you.'],
     ['Address verification','Verification is optional. If you ask for it, we keep your mailing address only until a postcard with a one-time code is sent. Marking the postcard as mailed erases the address and the code, and entering the code deletes the rest of the record. Afterwards we keep only the fact and date that you verified. Staff who post the card see the address while it is waiting. Requests that are never completed are deleted after 45 days, and you can withdraw one at any time.'],
     ['Photos','Photos are resized on your device and are visible to members of your neighborhood. Avoid photos that show house numbers, licence plates, or people who have not agreed.'],
     ['Messages and moderation','Direct messages are visible in the app only to conversation participants. They are stored to deliver the service and are not end-to-end encrypted. Review text, risk signals, reports and appeals are available to assigned staff through the moderation console.'],
@@ -106,28 +107,44 @@ export function feedAside(area,member) {
 const feedTabs = [['feed','','All'],['feed/discussion','discussion','Discussions'],['feed/event','event','Events'],['requests','request','Requests'],
   ['feed/alert','alert','Safety'],['feed/lost','lost','Lost & found'],['feed/poll','poll','Polls'],['feed/offer','offer','Local business']];
 const createFor = { event:'event', alert:'alert', lost:'lost', poll:'poll', request:'request' };
-export function feedView(posts, area, selected, filter, alerts = []) {
+const scopeQuery = (scope) => scope ? '?in='+scope : '';
+export function scopeBar(route,scope,area,nearby = []) {
+  const options = [['',area],['nearby','Nearby'],['neo','Northeast Ohio']];
+  const note = scope==='nearby' ? (nearby.length ? area+' plus '+nearby.join(', ')+'.' : 'No nearby neighborhoods are linked yet.') :
+    scope==='neo' ? 'Posts shared with all of Northeast Ohio, plus everything from '+area+' and nearby.' : '';
+  return '<div class="scope"><nav class="scope-bar" aria-label="Choose how far to look">'+options.map(([key,label])=>
+    '<a href="#'+esc(route+scopeQuery(key))+'" '+(scope===key?'aria-current="page"':'')+'>'+icon(key==='neo'?'home':'pin',15)+esc(label)+'</a>').join('')+'</nav>'+
+    (note?'<p class="small">'+esc(note)+'</p>':'')+'</div>';
+}
+function composePrompt(name,area) {
+  const quick = [['event','Event','calendar'],['sale','Sell or give away','tag'],['poll','Poll','poll'],['alert','Safety alert','alert']];
+  return '<section class="card compose-prompt"><div class="compose-row">'+avatar(name)+'<a class="compose-input" href="#new/discussion">What’s happening in '+esc(area)+'?</a></div>'+
+    '<nav class="compose-quick" aria-label="Start a post">'+quick.map(([kind,label,image])=>'<a href="#new/'+kind+'">'+icon(image,17)+esc(label)+'</a>').join('')+'</nav></section>';
+}
+export function feedView(posts, area, selected, filter, alerts = [], scope = '', nearby = [], name = '') {
   const requests = selected === 'requests';
-  const tabs = '<nav class="tabs" aria-label="Filter feed">'+feedTabs.map(([route,kind,label])=>'<a href="#'+route+'" '+(filter===kind?'aria-current="page"':'')+'>'+label+'</a>').join('')+'</nav>';
+  const current = feedTabs.find(([,kind])=>kind===filter)?.[0] ?? 'feed';
+  const tabs = '<nav class="tabs" aria-label="Filter feed">'+feedTabs.map(([route,kind,label])=>'<a href="#'+route+scopeQuery(scope)+'" '+(filter===kind?'aria-current="page"':'')+'>'+label+'</a>').join('')+'</nav>';
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
-    heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-banner"><p class="eyebrow">'+icon('pin',15)+esc(area)+' · NORTHEAST OHIO</p><h1>Your neighborhood</h1><p>Good things happen when neighbors talk.</p></header>'+
+    heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
+    '<header class="feed-top"><h1>Your neighborhood</h1><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
-    '<div class="feed-controls">'+tabs+action('New post',create,'primary','plus')+'</div>')+
+    scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (posts.length ? '<div class="cards" id="feed-results">'+posts.map(postCard).join('')+'</div>' : blank(requests?'brief':'chat',requests?'No requests yet':filter?'Nothing here yet':'Say hello to your neighbors',requests?'Post the first service request for your neighborhood.':'Start a discussion, share an event, or ask for a recommendation.',
       action(requests?'Create a request':'Create a post',create,'outline','plus')))+
-    (posts.length === 25 ? pager('feed-more',posts.at(-1),hidden('kind',filter)):'');
+    (posts.length === 25 ? pager('feed-more',posts.at(-1),hidden('kind',filter)+hidden('scope',scope==='neo'?'region':scope)):'');
 }
 export function pager(name,item,fields = '') {
   return form(name,hidden('before',item.created_at ?? item.updated_at ?? '')+hidden('cursor',item.id)+fields+button('Load more','outline'));
 }
 const closedLabel = { sale:'Sold', request:'Closed', lost:'Resolved', alert:'Resolved', poll:'Poll closed' };
 const closeAction = { sale:'Mark as sold', request:'Close request', lost:'Mark as resolved', alert:'Mark as resolved', poll:'Close poll' };
+const where = (post) => post.area ? ' · '+esc(post.area) : '';
 function byline(post) {
   return post.business ?
-    avatar(post.business)+'<div><strong><a href="#business/'+ref(post.business_id)+'">'+esc(post.business)+'</a></strong><span>'+esc(ago(post.created_at))+' · posted by '+esc(post.author)+'</span></div>' :
-    avatar(post.author)+'<div>'+person(post.author,post.author_id,post.author_verified)+'<span>'+esc(ago(post.created_at))+'</span></div>';
+    avatar(post.business)+'<div><strong><a href="#business/'+ref(post.business_id)+'">'+esc(post.business)+'</a></strong><span>'+esc(ago(post.created_at))+where(post)+' · posted by '+esc(post.author)+'</span></div>' :
+    avatar(post.author)+'<div>'+person(post.author,post.author_id,post.author_verified)+'<span>'+esc(ago(post.created_at))+where(post)+'</span></div>';
 }
 function facts(post) {
   return (post.kind==='sale' ? '<p class="price-line">'+esc(money(post.price_cents))+'</p>' : '')+
@@ -139,26 +156,29 @@ function likeButton(post) {
 }
 export function postCard(post) {
   const [label,image] = typeInfo[post.kind] ?? typeInfo.discussion;
+  const link = 'post/'+ref(post.id);
   return '<article class="card feed-card kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+
-    (post.business_verified?verified():'')+chip(label,image,post.kind)+'</div>'+
-    '<h2><a href="#post/'+ref(post.id)+'">'+esc(post.title)+'</a></h2>'+facts(post)+'<p class="post-text clamp">'+esc(post.body)+'</p>'+
-    (post.image_id?'<a href="#post/'+ref(post.id)+'">'+photo(post.image_id,'Photo for '+post.title)+'</a>':'')+
-    '<div class="post-foot">'+likeButton(post)+'<a class="text-link" href="#post/'+ref(post.id)+'">'+icon('chat',17)+esc(post.replies)+' '+(post.replies===1?'reply':'replies')+'</a>'+
-    (post.kind==='event'?'<span class="text-link">'+icon('user',17)+esc(post.going)+' going</span>':'')+'<span class="spacer"></span>'+
-    (post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+'</div></article>';
+    (post.business_verified?verified():'')+(post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+chip(label,image,post.kind)+'</div>'+
+    '<h2><a href="#'+link+'">'+esc(post.title)+'</a></h2>'+facts(post)+'<p class="post-text clamp">'+esc(post.body)+'</p>'+
+    (post.image_id?'<a class="bleed" href="#'+link+'">'+photo(post.image_id,'Photo for '+post.title)+'</a>':'')+
+    '<div class="post-actions">'+likeButton(post)+'<a class="act" href="#'+link+'">'+icon('chat',17)+'<span>'+esc(post.replies)+' '+(post.replies===1?'reply':'replies')+'</span></a>'+
+    (post.kind==='event'?'<a class="act" href="#'+link+'">'+icon('user',17)+'<span>'+esc(post.going)+' going</span></a>':'')+
+    '<button class="act" type="button" data-share="'+esc(link)+'">'+icon('external',17)+'<span>Share</span></button></div></article>';
 }
-export function marketView(items,filter) {
-  return heading('BUY, SELL, GIVE AWAY','Marketplace','For sale and free items from people in your neighborhood.',action('List an item','new/sale','primary','plus'))+
+export function marketView(items,filter,scope = '',area = '',nearby = []) {
+  return heading('BUY, SELL, GIVE AWAY','Marketplace','For sale and free items from neighbors, near and a little further out.',action('List an item','new/sale','primary','plus'))+
+    scopeBar('market',scope,area,nearby)+
     (items.length ? '<div class="market-grid" id="market-results">'+items.map(marketCard).join('')+'</div>' :
       blank('tag','Nothing listed yet','List something you no longer need. Free items are welcome.',action('List an item','new/sale','outline','plus')))+
-    (items.length === 25 ? pager('market-more',items.at(-1),hidden('kind',filter)):'');
+    (items.length === 25 ? pager('market-more',items.at(-1),hidden('kind',filter)+hidden('scope',scope==='neo'?'region':scope)):'');
 }
 export function marketCard(item) {
   return '<a class="card market-card" href="#post/'+ref(item.id)+'">'+(item.image_id?photo(item.image_id,'','market-photo'):'<span class="market-photo placeholder">'+icon('tag',30)+'</span>')+
     '<span class="market-body"><strong class="price-line">'+esc(money(item.price_cents))+'</strong><span class="market-title">'+esc(item.title)+'</span>'+
-    '<small>'+esc(item.author)+' · '+esc(ago(item.created_at))+'</small>'+(item.closed?chip('Sold','','muted'):'')+'</span></a>';
+    '<small>'+esc(item.author)+' · '+esc(ago(item.created_at))+where(item)+'</small>'+(item.closed?chip('Sold','','muted'):'')+'</span></a>';
 }
-export function composer(type,businesses = []) {
+const reachLabel = { area:'your neighborhood only', nearby:'your neighborhood and nearby', region:'all of Northeast Ohio' };
+export function composer(type,businesses = [],area = 'My neighborhood') {
   const kinds = ['discussion','event','sale','request','lost','poll','alert',...(businesses.length?['offer']:[])];
   const kind = kinds.includes(type) ? type : 'discussion';
   const titles = { discussion:'Create a post', request:'Request a local service', event:'Share a local event', sale:'List an item', lost:'Report lost or found',
@@ -171,13 +191,15 @@ export function composer(type,businesses = []) {
     kind==='lost' || kind==='alert' ? field('General location (optional)','place',{required:false,min:2,max:120,placeholder:'A cross street or landmark, never a home address'}) :
     kind==='poll' ? [1,2,3,4].map((n)=>field('Choice '+n+(n>2?' (optional)':''),'option'+n,{required:n<3,min:1,max:80})).join('') :
     kind==='offer' ? select('Post as','business',businesses.map((b)=>[b.id,b.name]),businesses[0]?.id) : '';
-  return back('Back to feed',kind==='sale'?'market':'feed')+heading('SHARE WITH NEIGHBORS',titles[kind],'Your post will be visible to members of your selected neighborhood.')+
+  return back('Back to feed',kind==='sale'?'market':'feed')+heading('SHARE WITH NEIGHBORS',titles[kind],'You choose how far your post travels.')+
     '<nav class="tabs kind-tabs" aria-label="Post type">'+kinds.map((k)=>'<a href="#new/'+k+'" '+(k===kind?'aria-current="page"':'')+'>'+icon(typeInfo[k][1],16)+esc(typeInfo[k][0])+'</a>').join('')+'</nav>'+
     (hints[kind]?'<p class="notice-box">'+esc(hints[kind])+'</p>':'')+
     '<section class="card panel">'+form('create_post',hidden('kind',kind)+
     field('Title','title',{min:3,max:120,placeholder:kind==='sale'?'What are you listing?':'What would you like neighbors to know?'})+extra+
     field('Details','body',{type:'textarea',min:3,max:2400,hint:'Keep exact addresses, phone numbers, and personal information out of your post.'})+
-    (kind==='poll'?'':upload())+button('Publish post','primary','arrow'))+'</section>';
+    (kind==='poll'?'':upload())+
+    select('Who can see this','reach',[['area',area+' only'],['nearby',area+' and nearby neighborhoods'],['region','All of Northeast Ohio']],'nearby')+
+    button('Publish post','primary','arrow'))+'</section>';
 }
 function reportContent(id,kind) {
   return '<details><summary>'+icon('flag',14)+' Report '+kind+'</summary>'+form('report_content',hidden('id',id)+hidden('kind',kind)+
@@ -212,6 +234,7 @@ export function postView(post,me,businesses) {
   return back('Back to '+(home==='market'?'marketplace':home),home)+
     '<article class="card panel detail kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+(post.business_verified?verified():'')+chip(label,image,post.kind)+'</div>'+
     '<h1>'+esc(post.title)+'</h1>'+facts(post)+'<p class="post-text">'+esc(post.body)+'</p>'+photo(post.image_id,'Photo for '+post.title,'photo large')+
+    '<p class="fact reach">'+icon('pin',16)+esc('Posted in '+post.area+' · shared with '+(post.local?reachLabel[post.reach]:post.reach==='region'?'all of Northeast Ohio':'nearby neighborhoods'))+'</p>'+
     (post.kind==='poll'?pollBlock(post):'')+
     '<div class="inline-actions">'+likeButton(post)+
     (post.kind==='event'?quick('rsvp',hidden('id',post.id),(post.attending?'You’re going':'I’m going')+' · '+post.going,'calendar',post.attending):'')+
@@ -259,7 +282,7 @@ export function searchView(query,results) {
 export function profileView(profile,posts,me) {
   const self = profile.id===me;
   return back('Back to feed','feed')+'<section class="card panel profile-head">'+avatar(profile.name)+'<div><h1>'+esc(profile.name)+tick(profile.verified)+'</h1>'+
-    '<p class="quiet">'+(profile.verified?'Verified neighbor · ':'')+'Joined '+esc(date(profile.joined))+'</p>'+(profile.bio?'<p class="post-text">'+esc(profile.bio)+'</p>':'')+'</div>'+
+    '<p class="quiet">'+esc(profile.area)+' · '+(profile.verified?'Verified neighbor · ':'')+'Joined '+esc(date(profile.joined))+'</p>'+(profile.bio?'<p class="post-text">'+esc(profile.bio)+'</p>':'')+'</div>'+
     '<div class="inline-actions">'+(self?action('Edit my profile','account','outline','user'):action('Message '+profile.name,'compose/'+ref(profile.id),'primary','inbox')+
       form(profile.blocked?'unblock':'block',hidden('peer',profile.id)+button(profile.blocked?'Unblock':'Block','ghost')))+'</div></section>'+
     (profile.businesses.length?'<section class="detail-section"><h2>Businesses</h2><div class="cards">'+profile.businesses.map((b)=>
@@ -302,7 +325,7 @@ export function businessView(b,me) {
   const owner = me===b.owner_id;
   const site = url(b.website);
   return back('Back to businesses','directory')+'<section class="card panel detail">'+(b.image_id?photo(b.image_id,b.name+' logo','logo big'):'<span class="feature-icon">'+icon('shop',23)+'</span>')+
-    '<p class="eyebrow">'+esc(b.category)+'</p><h1>'+esc(b.name)+'</h1>'+(b.verified?verified():'')+rating(b.rating,b.review_count)+'<p class="post-text">'+esc(b.description)+'</p>'+
+    '<p class="eyebrow">'+esc(b.category)+' · '+esc(b.area)+'</p><h1>'+esc(b.name)+'</h1>'+(b.verified?verified():'')+rating(b.rating,b.review_count)+'<p class="post-text">'+esc(b.description)+'</p>'+
     (b.hours?'<p class="fact">'+icon('clock',16)+esc(b.hours)+'</p>':'')+
     (b.phone?'<p class="fact">'+icon('phone',16)+'<a href="tel:'+esc(b.phone.replace(/[^0-9+]/g,''))+'">'+esc(b.phone)+'</a></p>':'')+
     '<p class="fact">'+icon('user',16)+'<span>Run by <a class="text-link" href="#neighbor/'+ref(b.owner_id)+'">'+esc(b.owner)+'</a></span></p>'+
@@ -313,7 +336,7 @@ export function businessView(b,me) {
     '<section class="detail-section"><h2>Neighbor reviews</h2><p class="quiet">Reviews describe firsthand experiences. A moderator decides what is published.</p>'+
     '<div class="cards" id="review-results">'+(b.reviews.length?b.reviews.map(reviewCard).join(''):'<p class="quiet">No published reviews yet.</p>')+'</div>'+
     (b.reviews.length===25?pager('reviews-more',b.reviews.at(-1),hidden('id',b.id)):'')+'</section>'+
-    (!owner&&!b.ownReview?'<section class="card panel"><h2>Share your experience</h2>'+form('submit_review',hidden('id',b.id)+
+    (!b.local?'<p class="quiet">Reviews are written by members of '+esc(b.area)+'.</p>':!owner&&!b.ownReview?'<section class="card panel"><h2>Share your experience</h2>'+form('submit_review',hidden('id',b.id)+
       select('Rating','rating',[[5,'5 stars'],[4,'4 stars'],[3,'3 stars'],[2,'2 stars'],[1,'1 star']],'','Select a rating')+
       field('Your review','body',{type:'textarea',min:20,max:1600,hint:'Describe your firsthand experience. Leave out names, numbers, and addresses that are private.'})+
       check('I have a relationship with this business that readers should know about.','affiliated')+
