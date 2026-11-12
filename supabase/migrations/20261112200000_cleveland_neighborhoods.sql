@@ -1,0 +1,41 @@
+-- Every City of Cleveland neighborhood (the city's 34 statistical planning areas), listed alphabetically,
+-- followed by the suburban pilot areas.
+insert into neighborhood.areas(id,name,region,sort) values
+ ('bellaire-puritas','Bellaire-Puritas','Cleveland',1),
+ ('broadway-slavic-village','Broadway-Slavic Village','Cleveland',2),
+ ('brooklyn-centre','Brooklyn Centre','Cleveland',3),
+ ('buckeye-shaker-square','Buckeye-Shaker Square','Cleveland',4),
+ ('buckeye-woodhill','Buckeye-Woodhill','Cleveland',5),
+ ('central','Central','Cleveland',6),
+ ('clark-fulton','Clark-Fulton','Cleveland',7),
+ ('collinwood-nottingham','Collinwood-Nottingham','Cleveland',8),
+ ('cudell','Cudell','Cleveland',9),
+ ('cuyahoga-valley','Cuyahoga Valley','Cleveland',10),
+ ('detroit-shoreway','Detroit Shoreway','Cleveland',11),
+ ('downtown','Downtown','Cleveland',12),
+ ('edgewater','Edgewater','Cleveland',13),
+ ('euclid-green','Euclid-Green','Cleveland',14),
+ ('fairfax','Fairfax','Cleveland',15),
+ ('glenville','Glenville','Cleveland',16),
+ ('goodrich-kirtland-park','Goodrich-Kirtland Park','Cleveland',17),
+ ('hopkins','Hopkins','Cleveland',18),
+ ('hough','Hough','Cleveland',19),
+ ('jefferson','Jefferson','Cleveland',20),
+ ('kamms-corners','Kamm''s Corners','Cleveland',21),
+ ('kinsman','Kinsman','Cleveland',22),
+ ('lee-harvard','Lee-Harvard','Cleveland',23),
+ ('lee-seville','Lee-Seville','Cleveland',24),
+ ('mount-pleasant','Mount Pleasant','Cleveland',25),
+ ('north-shore-collinwood','North Shore Collinwood','Cleveland',26),
+ ('ohio-city','Ohio City','Cleveland',27),
+ ('old-brooklyn','Old Brooklyn','Cleveland',28),
+ ('st-clair-superior','St. Clair-Superior','Cleveland',29),
+ ('stockyards','Stockyards','Cleveland',30),
+ ('tremont','Tremont','Cleveland',31),
+ ('union-miles','Union-Miles','Cleveland',32),
+ ('university-circle','University Circle','Cleveland',33),
+ ('west-boulevard','West Boulevard','Cleveland',34)
+on conflict (id) do update set name = excluded.name,region = excluded.region,sort = excluded.sort;
+update neighborhood.areas set sort = 35 where id = 'brook-park';
+update neighborhood.areas set sort = 36 where id = 'lakewood';
+update neighborhood.areas set sort = 37 where id = 'parma';

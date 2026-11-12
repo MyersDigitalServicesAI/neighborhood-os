@@ -39,7 +39,7 @@ export const url = (value) => {
   catch { return ''; }
 };
 export const ref = (value) => encodeURIComponent(value ?? '');
-export const areas = ['Old Brooklyn','Parma','Brook Park','Lakewood'];
+export const areas = ['All 34 Cleveland neighborhoods','Parma','Brook Park','Lakewood'];
 export const categories = ['Home services','Food & drink','Retail','Health & wellness','Professional services','Other'];
 export const typeInfo = { discussion:['Discussion','chat'], request:['Service request','brief'], event:['Local event','calendar'],
   alert:['Safety alert','alert'], lost:['Lost & found','paw'], sale:['For sale & free','tag'], poll:['Poll','poll'], offer:['Business update','megaphone'] };
