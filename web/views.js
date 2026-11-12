@@ -116,16 +116,21 @@ export function scopeBar(route,scope,area,nearby = []) {
     '<a href="#'+esc(route+scopeQuery(key))+'" '+(scope===key?'aria-current="page"':'')+'>'+icon(key==='neo'?'home':'pin',15)+esc(label)+'</a>').join('')+'</nav>'+
     (note?'<p class="small">'+esc(note)+'</p>':'')+'</div>';
 }
-export function feedView(posts, area, selected, filter, alerts = [], scope = '', nearby = []) {
+function composePrompt(name,area) {
+  const quick = [['event','Event','calendar'],['sale','Sell or give away','tag'],['poll','Poll','poll'],['alert','Safety alert','alert']];
+  return '<section class="card compose-prompt"><div class="compose-row">'+avatar(name)+'<a class="compose-input" href="#new/discussion">What’s happening in '+esc(area)+'?</a></div>'+
+    '<nav class="compose-quick" aria-label="Start a post">'+quick.map(([kind,label,image])=>'<a href="#new/'+kind+'">'+icon(image,17)+esc(label)+'</a>').join('')+'</nav></section>';
+}
+export function feedView(posts, area, selected, filter, alerts = [], scope = '', nearby = [], name = '') {
   const requests = selected === 'requests';
   const current = feedTabs.find(([,kind])=>kind===filter)?.[0] ?? 'feed';
   const tabs = '<nav class="tabs" aria-label="Filter feed">'+feedTabs.map(([route,kind,label])=>'<a href="#'+route+scopeQuery(scope)+'" '+(filter===kind?'aria-current="page"':'')+'>'+label+'</a>').join('')+'</nav>';
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
     heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-banner"><p class="eyebrow">'+icon('pin',15)+esc(area)+' · NORTHEAST OHIO</p><h1>Your neighborhood</h1><p>Good things happen when neighbors talk.</p></header>'+
+    '<header class="feed-top"><h1>Your neighborhood</h1><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
-    scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+action('New post',create,'primary','plus')+'</div>')+
+    scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (posts.length ? '<div class="cards" id="feed-results">'+posts.map(postCard).join('')+'</div>' : blank(requests?'brief':'chat',requests?'No requests yet':filter?'Nothing here yet':'Say hello to your neighbors',requests?'Post the first service request for your neighborhood.':'Start a discussion, share an event, or ask for a recommendation.',
       action(requests?'Create a request':'Create a post',create,'outline','plus')))+
     (posts.length === 25 ? pager('feed-more',posts.at(-1),hidden('kind',filter)+hidden('scope',scope==='neo'?'region':scope)):'');
@@ -135,7 +140,7 @@ export function pager(name,item,fields = '') {
 }
 const closedLabel = { sale:'Sold', request:'Closed', lost:'Resolved', alert:'Resolved', poll:'Poll closed' };
 const closeAction = { sale:'Mark as sold', request:'Close request', lost:'Mark as resolved', alert:'Mark as resolved', poll:'Close poll' };
-const where = (post) => post.local === false && post.area ? ' · '+esc(post.area) : '';
+const where = (post) => post.area ? ' · '+esc(post.area) : '';
 function byline(post) {
   return post.business ?
     avatar(post.business)+'<div><strong><a href="#business/'+ref(post.business_id)+'">'+esc(post.business)+'</a></strong><span>'+esc(ago(post.created_at))+where(post)+' · posted by '+esc(post.author)+'</span></div>' :
@@ -151,13 +156,14 @@ function likeButton(post) {
 }
 export function postCard(post) {
   const [label,image] = typeInfo[post.kind] ?? typeInfo.discussion;
+  const link = 'post/'+ref(post.id);
   return '<article class="card feed-card kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+
-    (post.business_verified?verified():'')+chip(label,image,post.kind)+'</div>'+
-    '<h2><a href="#post/'+ref(post.id)+'">'+esc(post.title)+'</a></h2>'+facts(post)+'<p class="post-text clamp">'+esc(post.body)+'</p>'+
-    (post.image_id?'<a href="#post/'+ref(post.id)+'">'+photo(post.image_id,'Photo for '+post.title)+'</a>':'')+
-    '<div class="post-foot">'+likeButton(post)+'<a class="text-link" href="#post/'+ref(post.id)+'">'+icon('chat',17)+esc(post.replies)+' '+(post.replies===1?'reply':'replies')+'</a>'+
-    (post.kind==='event'?'<span class="text-link">'+icon('user',17)+esc(post.going)+' going</span>':'')+'<span class="spacer"></span>'+
-    (post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+'</div></article>';
+    (post.business_verified?verified():'')+(post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+chip(label,image,post.kind)+'</div>'+
+    '<h2><a href="#'+link+'">'+esc(post.title)+'</a></h2>'+facts(post)+'<p class="post-text clamp">'+esc(post.body)+'</p>'+
+    (post.image_id?'<a class="bleed" href="#'+link+'">'+photo(post.image_id,'Photo for '+post.title)+'</a>':'')+
+    '<div class="post-actions">'+likeButton(post)+'<a class="act" href="#'+link+'">'+icon('chat',17)+'<span>'+esc(post.replies)+' '+(post.replies===1?'reply':'replies')+'</span></a>'+
+    (post.kind==='event'?'<a class="act" href="#'+link+'">'+icon('user',17)+'<span>'+esc(post.going)+' going</span></a>':'')+
+    '<button class="act" type="button" data-share="'+esc(link)+'">'+icon('external',17)+'<span>Share</span></button></div></article>';
 }
 export function marketView(items,filter,scope = '',area = '',nearby = []) {
   return heading('BUY, SELL, GIVE AWAY','Marketplace','For sale and free items from neighbors, near and a little further out.',action('List an item','new/sale','primary','plus'))+

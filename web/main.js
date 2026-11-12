@@ -129,7 +129,7 @@ async function render() {
         page = key === 'requests' ? 'requests' : 'feed';
         const kind = page === 'requests' ? 'request' : feedKinds.has(arg) ? arg : '';
         const [items,alerts] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope})]);
-        content = view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby);
+        content = view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby,member.name);
         aside = view.feedAside(area,context.member);
         break;
       }
@@ -343,6 +343,20 @@ async function submit(operation,data,element) {
   }
 }
 
+app.addEventListener('click',async (event)=>{
+  const control = event.target.closest('[data-share]');
+  if (!control) return;
+  const link = location.origin+'/#'+control.dataset.share;
+  try {
+    if (navigator.share) await navigator.share({url:link});
+    else {
+      await navigator.clipboard.writeText(link);
+      show('Link copied. Only people who can see this post can open it.');
+    }
+  } catch (error) {
+    if (error?.name !== 'AbortError') show('Copy this link: '+link);
+  }
+});
 app.addEventListener('change',(event)=>{
   const node = event.target.closest('form[data-action="decide_vetting"]');
   if (node && event.target.name==='action') setEvidence(node);
