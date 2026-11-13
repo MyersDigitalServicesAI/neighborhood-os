@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -54,6 +54,13 @@ function show(message) {
   notice.classList.add('visible');
   clearTimeout(noticeTimer);
   noticeTimer = setTimeout(()=>notice.classList.remove('visible'),4700);
+}
+// The map is a separate chunk so the feed never pays for it.
+async function showMap(options) {
+  const root = document.querySelector('#map-root');
+  if (!root) return null;
+  try { return await (await import('./map.js')).mount(root,options); }
+  catch { root.innerHTML = '<p class="notice-box">The map could not be loaded. You can still use the list.</p>'; return null; }
 }
 async function sync() {
   context = await rpc('bootstrap');
@@ -113,6 +120,16 @@ async function render() {
   }
   if (!context.member) {
     app.innerHTML = view.joinView(context.areas,context.canJoin);
+    const choice = app.querySelector('select[name="area"]');
+    const note = app.querySelector('#map-note');
+    if (!choice) return;
+    const map = await showMap({pin:true,onPick:(picked)=>{
+      const known = picked && [...choice.options].some((option)=>option.value===picked.id);
+      choice.value = known ? picked.id : '';
+      note.textContent = known ? 'Pin dropped in '+picked.name+'. Its position is never sent or stored.' :
+        'That spot is outside the areas we cover. Tap inside a neighborhood or suburb.';
+    }});
+    choice.addEventListener('change',()=>map?.select(choice.value));
     return;
   }
   const {member} = context;
@@ -133,6 +150,9 @@ async function render() {
         aside = view.feedAside(area,context.member);
         break;
       }
+      case 'map':
+        content = view.mapView(area);
+        break;
       case 'market':
         content = view.marketView(await rpc('feed',{kind:'sale',scope}),'sale',reach,area,context.nearby);
         break;
@@ -227,6 +247,21 @@ async function render() {
   }
   if (current !== version) return;
   app.innerHTML = view.shell(context,page,content,aside);
+  if (key === 'map') {
+    const summary = await rpc('map').catch(()=>({}));
+    if (current !== version) return;
+    const nearby = new Set();
+    const map = await showMap({home:member.area_id,selected:member.area_id,onPick:(picked)=>{
+      const panel = document.querySelector('#map-panel');
+      if (!panel) return;
+      panel.innerHTML = picked ? view.mapPanel(picked,picked.id===member.area_id?'home':nearby.has(picked.id)?'near':'',summary[picked.id]) :
+        '<p class="quiet">That spot is outside the areas we cover. Tap a neighborhood or suburb.</p>';
+    }});
+    const mine = map?.areas.find((entry)=>entry.id===member.area_id);
+    for (const id of mine?.near ?? []) nearby.add(id);
+    const panel = document.querySelector('#map-panel');
+    if (mine && panel) panel.innerHTML = view.mapPanel(mine,'home',summary[mine.id]);
+  }
   for (const node of app.querySelectorAll('form[data-action="decide_vetting"]')) setEvidence(node);
 }
 

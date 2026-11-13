@@ -98,3 +98,18 @@ test('the wider dispatcher is the only one client roles can call',async()=>{
     }),/permission denied/,statement);
   }
 });
+
+test('the map shows true borders, every suburb, and only counts the viewer may see',async()=>{
+  const areas = await db.query("select count(*)::int n,count(*) filter (where region='Cleveland')::int city from neighborhood.areas");
+  assert.deepEqual(areas.rows[0],{n:91,city:34});
+  const near = (await call('ava','bootstrap')).nearby;
+  assert.deepEqual(near,['Brooklyn','Brooklyn Centre','Brooklyn Heights','Cuyahoga Heights','Parma','Stockyards']);
+  const mine = await call('ava','map');
+  assert.ok(mine['old-brooklyn'].members >= 5 && mine['old-brooklyn'].posts >= 5);
+  assert.equal(mine.parma.members,1);
+  assert.equal(mine.lakewood,undefined,'areas with no members are left out');
+  const far = await call('new','map');
+  assert.ok(far['old-brooklyn'].posts < mine['old-brooklyn'].posts,'local-only posts are not counted for other neighborhoods');
+  await assert.rejects(call('unconfirmed','map'),/confirmed email/);
+  await assert.rejects(db.transaction(async(tx)=>{ await tx.exec('set local role anon'); await tx.query('select neighborhood.map_summary()'); }),/permission denied/);
+});
