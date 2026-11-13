@@ -72,15 +72,17 @@ export function information(route,signedIn) {
 
 export function joinView(available,canJoin) {
   return '<main id="content" class="auth-wrap"><a href="#">'+brand+'</a><section class="auth-card">'+
-    heading('SET UP YOUR PROFILE','Where do you call home?','Choose the pilot neighborhood where you live or operate a local business.')+
+    heading('SET UP YOUR PROFILE','Where do you call home?','Tap the map to drop a pin where you live or run a local business, or choose from the list.')+
     (!canJoin ? '<p class="notice-box">This account has not been admitted to the pilot. Contact the pilot organizer for access.</p>' : form('join',field('Display name','name',{min:2,max:50,hint:'A first name and last initial is enough.'})+
+    '<div id="map-root" class="map small" data-pin="true"><p class="quiet map-wait">Loading the map…</p></div>'+
+    '<p class="small" id="map-note">The pin only picks your neighborhood. Its position is never sent or stored.</p>'+
     select('Your neighborhood','area',available.map((a)=>[a.id,a.name+' · '+a.region]),'','Select a neighborhood')+
     check('I live or operate a local business in the selected neighborhood.', 'attest',true)+button('Open my neighborhood','primary','arrow')))+
     form('logout',button('Sign out','ghost'))+'</section></main>';
 }
 
 const navigation = [
-  ['feed','Neighborhood','home'],['market','Marketplace','tag'],['requests','Service requests','brief'],['directory','Businesses','shop'],
+  ['feed','Neighborhood','home'],['map','Map','pin'],['market','Marketplace','tag'],['requests','Service requests','brief'],['directory','Businesses','shop'],
   ['inbox','Messages','inbox'],['notifications','Notifications','bell'],['account','Account','user']
 ];
 const mobileNavigation = [['feed','Feed','home'],['market','Market','tag'],['directory','Businesses','shop'],['inbox','Messages','inbox'],['notifications','Alerts','bell']];
@@ -92,12 +94,28 @@ export function shell(context,selected,body,aside = '') {
       icon(image,20)+'<span>'+esc(label)+'</span>'+(route==='notifications'&&unread?'<b class="count">'+(unread>99?'99+':unread)+'</b>':'')+'</a>').join('')+'</nav>';
   }
   return '<header class="app-header"><div class="app-header-inner"><a href="#feed" aria-label="NeighborhoodOS home">'+brand+'</a><span class="head-area">'+icon('pin',16)+esc(area)+'</span>'+
-    '<span class="head-tools"><a class="icon-link" href="#search" aria-label="Search">'+icon('search',20)+'</a>'+
+    '<span class="head-tools"><a class="icon-link map-link" href="#map" aria-label="Neighborhood map">'+icon('pin',20)+'</a><a class="icon-link" href="#search" aria-label="Search">'+icon('search',20)+'</a>'+
     '<a class="profile-link" href="#account" aria-label="Account">'+avatar(context.member.name)+'</a></span></div></header>'+
     '<div class="workspace '+(aside?'has-aside':'')+'"><aside class="sidebar"><p class="eyebrow">YOUR NEIGHBORHOOD</p>'+nav(context.staff?[...navigation,['moderation','Moderation','shield']]:navigation,'side-nav')+
     '<div class="side-help"><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></aside>'+
     '<main id="content" tabindex="-1" class="app-main">'+body+'</main>'+
     (aside?'<aside class="rightbar">'+aside+'</aside>':'')+'</div>'+nav(mobileNavigation,'bottom-nav');
+}
+export function mapView(area) {
+  return heading('NORTHEAST OHIO','Neighborhood map','Every Cleveland neighborhood and the suburbs around it. Tap one to see who is there.')+
+    '<div id="map-root" class="map"><p class="quiet map-wait">Loading the map…</p></div>'+
+    '<div class="map-legend"><span><i class="swatch home"></i>'+esc(area)+'</span><span><i class="swatch near"></i>Nearby</span><span><i class="swatch"></i>Rest of the area</span></div>'+
+    '<section class="card panel" id="map-panel" aria-live="polite"><p class="quiet">Tap a neighborhood or suburb to see it here.</p></section>';
+}
+export function mapPanel(picked,status,counts) {
+  const members = counts?.members ?? 0;
+  const posts = counts?.posts ?? 0;
+  return '<div class="split"><h2>'+esc(picked.name)+'</h2>'+chip(status==='home'?'Your neighborhood':status==='near'?'Nearby':picked.region,'pin',status==='home'?'verified':status==='near'?'location':'muted')+'</div>'+
+    '<p class="quiet">'+esc(picked.region==='Cleveland'?'City of Cleveland':'Cuyahoga County suburb')+' · '+members+' '+(members===1?'neighbor':'neighbors')+' on NeighborhoodOS · '+
+    posts+' recent '+(posts===1?'post':'posts')+' you can see</p>'+
+    (members===0?'<p class="small">Nobody has joined from here yet.</p>':'')+
+    '<div class="inline-actions">'+(status==='home'?action('Open my neighborhood feed','feed','primary','home'):
+      status==='near'?action('Open the Nearby feed','feed?in=nearby','primary','pin'):action('Open the Northeast Ohio feed','feed?in=neo','outline','home'))+'</div>';
 }
 export function feedAside(area,member) {
   return '<section class="side-card neighborhood-card"><span class="feature-icon">'+icon('pin',22)+'</span><p class="eyebrow">YOUR LOCAL CIRCLE</p><h2>'+esc(area)+'</h2><p>Conversations, listings and alerts from people in your neighborhood.</p></section>'+

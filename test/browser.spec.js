@@ -225,3 +225,29 @@ test('a post shared with nearby neighborhoods shows up in the Nearby and Northea
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   expect(errors).toEqual([]);
 });
+
+test('the built-in map opens on the member\'s neighborhood and describes any area that is tapped',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const errors = [];
+  const outside = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  page.on('request',(request)=>{ if (!request.url().startsWith('http://127.0.0.1:4173/') && !request.url().startsWith('data:')) outside.push(request.url()); });
+  await login(page,'ava');
+  await page.getByRole('link',{name:'Neighborhood map'}).click();
+  await expect(page.locator('.map path.map-area')).toHaveCount(91);
+  await expect(page.locator('#map-panel').getByRole('heading',{name:'Old Brooklyn'})).toBeVisible();
+  await expect(page.locator('#map-panel').getByText('Your neighborhood',{exact:true})).toBeVisible();
+  await expect(page.locator('.map path.map-area.near')).toHaveCount(6);
+  await page.getByRole('button',{name:'Show the whole map'}).click();
+  const spot = await page.locator('.map path[data-area="parma"]').boundingBox();
+  await page.mouse.click(spot.x+spot.width/2,spot.y+spot.height/2);
+  await expect(page.locator('#map-panel').getByRole('heading',{name:'Parma'})).toBeVisible();
+  await expect(page.locator('#map-panel').getByText('Nearby',{exact:true})).toBeVisible();
+  await expect(page.locator('#map-panel').getByText(/1 neighbor on NeighborhoodOS/)).toBeVisible();
+  for (let i = 0; i < 5; i++) await page.getByRole('button',{name:'Zoom in'}).click();
+  await expect.poll(()=>page.locator('.map-street[d]').count()).toBeGreaterThan(0);
+  await page.screenshot({path:'test-results/map-mobile.png'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  expect(outside).toEqual([]);
+  expect(errors).toEqual([]);
+});

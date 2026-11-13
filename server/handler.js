@@ -5,7 +5,7 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
   'my_reviews','appeal','apply_vetting','moderation','decide_review','decide_appeal','decide_vetting','report_content','decide_content',
   'delete_post','delete_reply','react','rsvp','vote','upload_image','notifications','read_notifications','search','profile','update_profile',
-  'request_residency','cancel_residency','confirm_residency','decide_residency']);
+  'request_residency','cancel_residency','confirm_residency','decide_residency','map']);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxBytes = 16000;
 const maxUpload = 420000;
