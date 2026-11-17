@@ -5,7 +5,8 @@ A mobile-first Northeast Ohio neighborhood app. The initial pilot areas are Old 
 ## What is in the app
 
 - Neighborhood feed with discussions, events with RSVPs, polls, service requests, safety alerts, lost and found, and business updates. Posts can carry one photo. Neighbors can thank a post and reply in threads.
-- Three views of the feed and marketplace: your neighborhood, nearby neighborhoods, and all of Northeast Ohio. Nearby links live in `neighborhood.area_links`, seeded from the five closest neighborhood centres in each direction, and can be edited by an operator.
+- Three views of the feed and marketplace: your neighborhood, nearby neighborhoods, and all of Northeast Ohio. Nearby means sharing a border; the links in `neighborhood.area_links` are generated from the real outlines by the map build.
+- A built-in map of Cleveland's 34 neighborhoods and Cuyahoga County's 57 suburbs with water, highways, main roads and local streets. It is generated from open data by `node tooling/build-map.mjs`, shipped as static files under `public/map`, and changes only on a deploy. No map provider is contacted. New members can drop a pin to choose their neighborhood; the pin's position is never sent to the server.
 - Marketplace for items for sale or free, with price, pickup area, photo, and a sold marker.
 - Business directory with free profiles (logo, phone, hours), human-moderated reviews with ratings, a vetted-only filter, and up to two business updates a week.
 - Notifications for replies, thanks, RSVPs, messages, safety alerts, review and vetting decisions. Search across posts, businesses and neighbors. Neighbor profiles with a short introduction.
