@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { initDatabase, fixtures, rpc, actors } from './db.js';
+import { initDatabase, fixtures, rpc, actors, counts } from './db.js';
 
 let db;
 let business;
@@ -112,4 +112,21 @@ test('the map shows true borders, every suburb, and only counts the viewer may s
   assert.ok(far['old-brooklyn'].posts < mine['old-brooklyn'].posts,'local-only posts are not counted for other neighborhoods');
   await assert.rejects(call('unconfirmed','map'),/confirmed email/);
   await assert.rejects(db.transaction(async(tx)=>{ await tx.exec('set local role anon'); await tx.query('select neighborhood.map_summary()'); }),/permission denied/);
+});
+
+test('signed-out visitors get bucketed counts that leave out sample accounts and reveal nothing else',async()=>{
+  const before = await counts(db);
+  assert.equal(before.areas['old-brooklyn'],5);
+  assert.equal(before.areas.parma,'few');
+  assert.equal(before.areas.glenville,'few');
+  assert.equal(before.areas.tremont,undefined);
+  assert.deepEqual([before.total,before.places],[7,3]);
+  await db.query("update neighborhood.members set sample = true where id = $1",[actors.jamal]);
+  const after = await counts(db);
+  assert.equal(after.areas['old-brooklyn'],'few','dropping below five turns the number into few');
+  assert.equal(after.total,6);
+  await db.query("update neighborhood.members set sample = false where id = $1",[actors.jamal]);
+  for (const statement of ['select * from neighborhood.members',"select neighborhood.dispatch3('feed','{}')",'select neighborhood.map_summary()',"select public.neighborhood_app('feed','{}')"]) {
+    await assert.rejects(db.transaction(async(tx)=>{ await tx.exec('set local role anon'); await tx.query(statement); }),/permission denied|confirmed email/,statement);
+  }
 });

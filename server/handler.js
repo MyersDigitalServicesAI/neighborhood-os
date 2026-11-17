@@ -68,6 +68,13 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
       if (req.method === 'GET' && action === 'config') {
         return reply(res,200,{ configured: database.configured, signups: env.OPEN_SIGNUPS === 'true', billing: billing.enabled, local });
       }
+      if (req.method === 'GET' && action === 'counts') {
+        const counts = await database.counts();
+        res.statusCode = 200;
+        res.setHeader('Content-Type','application/json; charset=utf-8');
+        res.setHeader('Cache-Control','public, max-age=300, s-maxage=300');
+        return res.end(JSON.stringify(counts));
+      }
       if (req.method === 'GET' && action === 'callback') {
         const code = url.searchParams.get('code');
         const verifier = saved[prefix+'pkce'];

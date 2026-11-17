@@ -11,6 +11,11 @@ export function landing(config) {
     action('How it works','standards','ghost')+'</div><small>Free for neighbors and local businesses.</small></div>'+
     '<div class="hero-art">'+illustration+'<div class="art-tag">'+icon('pin',16)+' <span>Rooted in Northeast Ohio</span></div></div></section>'+
     '<div class="area-strip"><span>STARTING IN</span>'+areas.map((a) => '<span>'+icon('pin',16)+esc(a)+'</span>').join('')+'</div>'+
+    '<section class="landing-map" aria-labelledby="map-title"><div class="landing-map-copy"><p class="eyebrow">WHO’S HERE</p>'+
+    '<h2 id="map-title">Find your neighborhood.</h2><p id="map-total" class="quiet">Every Cleveland neighborhood and Cuyahoga County suburb. Tap yours to see who has joined.</p>'+
+    '<div class="map-legend"><span><i class="swatch level-3"></i>Growing</span><span><i class="swatch level-2"></i>A few neighbors</span><span><i class="swatch"></i>Be the first</span></div></div>'+
+    '<div id="map-root" class="map"><p class="quiet map-wait">Loading the map…</p></div>'+
+    '<div class="card panel" id="map-panel" aria-live="polite"><p class="quiet">Tap a neighborhood or suburb on the map.</p></div></section>'+
     '<section class="intro"><p class="eyebrow">MADE FOR NEARBY</p><h2>A better way to be neighbors.</h2><div class="features">'+
     feature('chat','The neighborhood feed','Ask a question, share local news, run a poll, or plan an event together.')+
     feature('tag','Marketplace and lost & found','Sell or give away what you no longer need, and help a lost pet get home.')+
@@ -100,6 +105,13 @@ export function shell(context,selected,body,aside = '') {
     '<div class="side-help"><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></aside>'+
     '<main id="content" tabindex="-1" class="app-main">'+body+'</main>'+
     (aside?'<aside class="rightbar">'+aside+'</aside>':'')+'</div>'+nav(mobileNavigation,'bottom-nav');
+}
+export function landingPanel(area,value,config) {
+  const join = config.signups ? action('Join '+area.name,'signup','primary','arrow') : action('Pilot sign in','login','outline','arrow');
+  const line = typeof value === 'number' ? value+' neighbors have joined in '+area.name+'.' :
+    value === 'few' ? 'A few neighbors have joined in '+area.name+'. Help it grow.' : 'Nobody in '+area.name+' has joined yet. Be the first.';
+  return '<div class="split"><h3>'+esc(area.name)+'</h3>'+chip(area.region==='Cleveland'?'Cleveland':'Suburb','pin',value?'verified':'muted')+'</div>'+
+    '<p>'+esc(line)+'</p><div class="inline-actions">'+join+'</div>';
 }
 export function mapView(area) {
   return heading('NORTHEAST OHIO','Neighborhood map','Every Cleveland neighborhood and the suburbs around it. Tap one to see who is there.')+

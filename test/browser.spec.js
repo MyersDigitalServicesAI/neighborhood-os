@@ -251,3 +251,25 @@ test('the built-in map opens on the member\'s neighborhood and describes any are
   expect(outside).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+test('signed-out visitors see the map with live counts and an invitation for empty areas',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await page.goto('/');
+  await expect(page.getByRole('heading',{name:'Find your neighborhood.'})).toBeVisible();
+  await expect(page.locator('#map-total')).toHaveText(/^6 neighbors have joined across 2 neighborhoods and suburbs/);
+  await expect(page.locator('.map path.map-area.level-3')).toHaveCount(1);
+  await page.locator('.landing-map').scrollIntoViewIfNeeded();
+  await page.getByRole('button',{name:'Zoom in'}).click();
+  const ob = await page.locator('.map path[data-area="old-brooklyn"]').boundingBox();
+  await page.mouse.click(ob.x+ob.width/2,ob.y+ob.height/2);
+  await expect(page.locator('#map-panel')).toContainText(/neighbors have joined in Old Brooklyn/);
+  await page.getByRole('button',{name:'Show the whole map'}).click();
+  const far = await page.locator('.map path[data-area="solon"]').boundingBox();
+  await page.mouse.click(far.x+far.width/2,far.y+far.height/2);
+  await expect(page.locator('#map-panel')).toContainText('Nobody in Solon has joined yet. Be the first.');
+  await page.screenshot({path:'test-results/landing-map-mobile.png',fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  expect(errors).toEqual([]);
+});

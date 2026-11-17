@@ -62,6 +62,25 @@ async function showMap(options) {
   try { return await (await import('./map.js')).mount(root,options); }
   catch { root.innerHTML = '<p class="notice-box">The map could not be loaded. You can still use the list.</p>'; return null; }
 }
+let countsPromise;
+async function showLandingMap(current) {
+  countsPromise ??= raw('counts').catch(()=>{ countsPromise = null; return null; });
+  const counts = await countsPromise;
+  if (current !== version || !document.querySelector('#map-root')) return;
+  const values = counts?.areas ?? {};
+  const levels = Object.fromEntries(Object.entries(values).map(([id,value])=>[id,typeof value === 'number' ? 3 : 2]));
+  const total = document.querySelector('#map-total');
+  if (counts && total) {
+    total.textContent = counts.total === 'few' || !counts.places ? 'We are just getting started. Tap your neighborhood and be one of the first to join.' :
+      counts.total+' neighbors have joined across '+counts.places+' '+(counts.places===1?'neighborhood':'neighborhoods and suburbs')+'. Tap yours to see who is there.';
+  }
+  await showMap({levels,onPick:(picked)=>{
+    const panel = document.querySelector('#map-panel');
+    if (!panel) return;
+    panel.innerHTML = picked ? view.landingPanel(picked,values[picked.id],config) :
+      '<p class="quiet">That spot is outside the areas we cover. Tap a neighborhood or suburb.</p>';
+  }});
+}
 async function sync() {
   context = await rpc('bootstrap');
   synced = Date.now();
@@ -116,6 +135,7 @@ async function render() {
   }
   if (!signedIn) {
     app.innerHTML = guarded.has(key) ? view.authView('login',config) : view.landing(config);
+    if (!guarded.has(key)) await showLandingMap(current);
     return;
   }
   if (!context.member) {

@@ -76,3 +76,12 @@ test('Stripe signature verifies raw bytes, rejects stale requests, and rejects t
   await assert.rejects(verifyStripeEvent(bytes,signature,secret,1400),/Invalid signature/);
   await assert.rejects(verifyStripeEvent(new TextEncoder().encode('{}'),signature,secret,timestamp),/Invalid signature/);
 });
+
+test('public counts are served without a session and may be cached briefly',async()=>{
+  const handler = makeHandler({env:{APP_ORIGIN:origin},database:{configured:true,counts:async()=>({areas:{'old-brooklyn':12},total:12,places:1})},billing:{enabled:false}});
+  const res = {headers:{},setHeader(k,v){this.headers[k.toLowerCase()]=v;},end(value){this.body=JSON.parse(value);}};
+  await handler({method:'GET',url:'/api/core?action=counts',headers:{},async *[Symbol.asyncIterator](){}},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.headers['cache-control'],'public, max-age=300, s-maxage=300');
+  assert.deepEqual(res.body,{areas:{'old-brooklyn':12},total:12,places:1});
+});

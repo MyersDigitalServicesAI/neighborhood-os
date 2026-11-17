@@ -20,6 +20,13 @@ export function rpc(db, actor, op, data = {}) {
   });
 }
 
+export function counts(db) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.neighborhood_counts() as value')).rows[0].value;
+  });
+}
+
 export function sync(db,data) {
   return db.transaction(async (tx) => {
     await tx.exec('set local role service_role');
@@ -43,6 +50,7 @@ export function fixtureAdapter(db, accounts) {
       if (!signedIn.has(token)) throw new Problem(401,'Sign in to continue.');
       return { access_token:token,refresh_token:token,expires_in:3600 };
     },
+    counts:() => counts(db),
     async rpc(token, op, data) {
       const actor = signedIn.get(token);
       if (!actor) throw new Problem(401,'Sign in to continue.');

@@ -106,3 +106,9 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .map-credit{position:absolute;left:8px;bottom:6px;right:60px;font-size:.66rem;color:#5d6c62;pointer-events:none;text-shadow:0 0 3px #fff,0 0 3px #fff}
 .map-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.85rem;font-weight:650;color:var(--ink-soft)}.map-legend span{display:inline-flex;align-items:center;gap:6px}.swatch{width:15px;height:15px;border-radius:4px;border:1px solid #a9b49d;background:#f3f1e5}.swatch.near{background:#dbe8cf}.swatch.home{background:#9cc3a2}
 @media(min-width:721px){.map-link{display:none}}
+.map-area.level-2{fill:#e2ecd4}.map-area.level-3{fill:#b6d3b2}.map-area.level-2:hover{fill:#d6e5c5}.map-area.level-3:hover{fill:#a6c9a3}
+.swatch.level-2{background:#e2ecd4}.swatch.level-3{background:#b6d3b2}
+.landing-map{display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-areas:"copy copy" "map panel";gap:16px;padding:44px 0 8px}
+.landing-map-copy{grid-area:copy;display:grid;gap:8px;max-width:700px}.landing-map-copy h2{font-size:clamp(1.9rem,4vw,2.75rem)}
+.landing-map .map{grid-area:map;height:min(70vh,560px)}.landing-map #map-panel{grid-area:panel;align-self:start;display:grid;gap:10px}
+@media(max-width:860px){.landing-map{grid-template-columns:1fr;grid-template-areas:"copy" "map" "panel";padding-top:30px}.landing-map .map{height:420px}}
