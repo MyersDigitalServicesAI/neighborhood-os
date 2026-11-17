@@ -4,7 +4,7 @@ import { Problem } from '../server/supabase.js';
 
 export async function initDatabase() {
   const db = new PGlite();
-  await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users (id uuid primary key,email_confirmed_at timestamptz); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;");
+  await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users (id uuid primary key,email_confirmed_at timestamptz,email text,created_at timestamptz not null default now()); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;");
   const folder = new URL('../supabase/migrations/',import.meta.url);
   for (const file of (await readdir(folder)).filter((file) => file.endsWith('.sql')).sort()) {
     await db.exec(await readFile(new URL(file,folder),'utf8'));
@@ -17,6 +17,20 @@ export function rpc(db, actor, op, data = {}) {
     await tx.exec('set local role authenticated');
     await tx.query("select set_config('request.jwt.claim.sub',$1,true)",[actor]);
     return (await tx.query('select public.neighborhood_app($1,$2) as value',[op,JSON.stringify(data)])).rows[0].value;
+  });
+}
+
+export function counts(db) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.neighborhood_counts() as value')).rows[0].value;
+  });
+}
+
+export function mail(db,data) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role service_role');
+    return (await tx.query('select public.neighborhood_mail($1) as value',[JSON.stringify(data)])).rows[0].value;
   });
 }
 
@@ -43,6 +57,8 @@ export function fixtureAdapter(db, accounts) {
       if (!signedIn.has(token)) throw new Problem(401,'Sign in to continue.');
       return { access_token:token,refresh_token:token,expires_in:3600 };
     },
+    counts:() => counts(db),
+    mail:(d) => mail(db,d),
     async rpc(token, op, data) {
       const actor = signedIn.get(token);
       if (!actor) throw new Problem(401,'Sign in to continue.');
@@ -73,10 +89,10 @@ export async function fixtures(db) {
   await db.exec('update neighborhood.launch_settings set public_enrollment=true');
   const names = { ava:'Ava M.',jamal:'Jamal R.',luis:'Luis G.',taylor:'Taylor K.',rina:'Rina P.',devon:'Devon W.' };
   for (const [key,id] of Object.entries(actors)) {
-    await db.query("insert into auth.users values($1,case when $2 then now() end)",[id,key !== 'unconfirmed']);
+    await db.query("insert into auth.users(id,email_confirmed_at,email) values($1,case when $2 then now() end,$3)",[id,key !== 'unconfirmed',key+'@neighborhood.test']);
     if (names[key]) await rpc(db,id,'join',{name:names[key],attest:true,area:key === 'taylor' ? 'parma' : 'old-brooklyn'});
   }
-  for (const id of [actors.rina,actors.devon]) await db.query("insert into neighborhood.staff values($1,'moderator')",[id]);
+  await db.query("insert into neighborhood.staff values($1,'admin'),($2,'moderator')",[actors.rina,actors.devon]);
   const business = await rpc(db,actors.luis,'create_business',{
     name:'Juniper Home Repair',category:'Home services',description:'Small repairs and finish carpentry for homes around Cleveland. Fixture business for local testing only.',website:''
   });

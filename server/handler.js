@@ -1,11 +1,15 @@
 import { billingAdapter } from './billing.js';
 import { Problem, supabaseAdapter } from './supabase.js';
+import { deliver, mailerAdapter } from './mail.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
   'my_reviews','appeal','apply_vetting','moderation','decide_review','decide_appeal','decide_vetting','report_content','decide_content',
   'delete_post','delete_reply','react','rsvp','vote','upload_image','notifications','read_notifications','search','profile','update_profile',
-  'request_residency','cancel_residency','confirm_residency','decide_residency','map']);
+  'request_residency','cancel_residency','confirm_residency','decide_residency','map',
+  'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role']);
+// Operations that can queue an email; the queue is drained right after them.
+const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxBytes = 16000;
 const maxUpload = 420000;
@@ -38,7 +42,7 @@ function cookies(req) {
 }
 
 export function makeHandler({ env = globalThis.process?.env ?? {}, database = supabaseAdapter(env), billing = billingAdapter(env,database),
-  local = false } = {}) {
+  local = false, mailer = mailerAdapter(env) } = {}) {
   const prefix = local ? 'nh_' : '__Host-nh_';
   function cookie(name,value,maxAge) {
     return prefix + name + '=' + value + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + (local ? '' : '; Secure');
@@ -66,7 +70,22 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
       const saved = cookies(req);
       const access = saved[prefix+'access'];
       if (req.method === 'GET' && action === 'config') {
-        return reply(res,200,{ configured: database.configured, signups: env.OPEN_SIGNUPS === 'true', billing: billing.enabled, local });
+        return reply(res,200,{ configured: database.configured, signups: env.OPEN_SIGNUPS === 'true', billing: billing.enabled, email: mailer.enabled, local });
+      }
+      if (req.method === 'GET' && action === 'counts') {
+        const counts = await database.counts();
+        res.statusCode = 200;
+        res.setHeader('Content-Type','application/json; charset=utf-8');
+        res.setHeader('Cache-Control','public, max-age=300, s-maxage=300');
+        return res.end(JSON.stringify(counts));
+      }
+      if (req.method === 'GET' && action === 'deliver') {
+        // Daily job: send anything still queued and delete stale address-verification requests.
+        if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
+        if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
+        const purged = await database.mail({ op:'purge' });
+        const mail = await deliver(database,mailer,{ budget:20000,limit:25 });
+        return reply(res,200,{ ...mail,...purged });
       }
       if (req.method === 'GET' && action === 'callback') {
         const code = url.searchParams.get('code');
@@ -146,8 +165,15 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (!billing.enabled) throw new Problem(503,'Billing is unavailable.');
         return reply(res,200,await billing.checkout(await database.rpc(access,action,{id:body.id})));
       }
+      if (action === 'delete_account') {
+        const result = await database.rpc(access,'delete_account',{ confirm:body.confirm });
+        clear(res);
+        return reply(res,200,result);
+      }
       if (!appOperations.has(action)) throw new Problem(404,'Action unavailable.');
-      return reply(res,200,await database.rpc(access,action,body));
+      const result = await database.rpc(access,action,body);
+      if (mailOperations.has(action) && mailer.enabled) await deliver(database,mailer).catch(() => {});
+      return reply(res,200,result);
     } catch (error) {
       if (error instanceof Problem) return reply(res,error.status,{ error:error.message });
       console.error('NeighborhoodOS request failed',action,error?.name ?? 'Error');

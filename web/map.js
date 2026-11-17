@@ -54,6 +54,7 @@ export async function mount(root,options = {}) {
   const full = { x:minX,y:minY,w:maxX-minX,h:maxY-minY };
   const home = base.areas.find((area)=>area.id===options.home);
   const near = new Set(home?.near ?? []);
+  const levels = options.levels ?? {};
   let selected = options.selected ?? '';
   let view = { ...full };
 
@@ -65,7 +66,8 @@ export async function mount(root,options = {}) {
   const byId = new Map();
   for (const area of base.areas) {
     const shape = node('path',{ d:area.points.map((ring)=>path(ring,true)).join(''),'data-area':area.id,'fill-rule':'evenodd',
-      class:'map-area'+(area.region==='Cleveland'?' city':'')+(area.id===options.home?' home':near.has(area.id)?' near':'') },shapes);
+      class:'map-area'+(area.region==='Cleveland'?' city':'')+(area.id===options.home?' home':near.has(area.id)?' near':'')+
+        (levels[area.id] ? ' level-'+levels[area.id] : '') },shapes);
     node('title',{},shape).textContent = area.name;
     byId.set(area.id,shape);
   }

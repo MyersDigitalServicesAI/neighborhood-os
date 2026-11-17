@@ -11,6 +11,11 @@ export function landing(config) {
     action('How it works','standards','ghost')+'</div><small>Free for neighbors and local businesses.</small></div>'+
     '<div class="hero-art">'+illustration+'<div class="art-tag">'+icon('pin',16)+' <span>Rooted in Northeast Ohio</span></div></div></section>'+
     '<div class="area-strip"><span>STARTING IN</span>'+areas.map((a) => '<span>'+icon('pin',16)+esc(a)+'</span>').join('')+'</div>'+
+    '<section class="landing-map" aria-labelledby="map-title"><div class="landing-map-copy"><p class="eyebrow">WHO’S HERE</p>'+
+    '<h2 id="map-title">Find your neighborhood.</h2><p id="map-total" class="quiet">Every Cleveland neighborhood and Cuyahoga County suburb. Tap yours to see who has joined.</p>'+
+    '<div class="map-legend"><span><i class="swatch level-3"></i>Growing</span><span><i class="swatch level-2"></i>A few neighbors</span><span><i class="swatch"></i>Be the first</span></div></div>'+
+    '<div id="map-root" class="map"><p class="quiet map-wait">Loading the map…</p></div>'+
+    '<div class="card panel" id="map-panel" aria-live="polite"><p class="quiet">Tap a neighborhood or suburb on the map.</p></div></section>'+
     '<section class="intro"><p class="eyebrow">MADE FOR NEARBY</p><h2>A better way to be neighbors.</h2><div class="features">'+
     feature('chat','The neighborhood feed','Ask a question, share local news, run a poll, or plan an event together.')+
     feature('tag','Marketplace and lost & found','Sell or give away what you no longer need, and help a lost pet get home.')+
@@ -36,6 +41,7 @@ export function authView(mode,config) {
     (recovery ? '' : field('Password','password',{type:'password',max:72,...credential}));
   return '<main id="content" class="auth-wrap"><a href="#" aria-label="NeighborhoodOS home">'+brand+'</a><section class="auth-card">'+
     heading('NORTHEAST OHIO',title,body)+
+    (config.invite && (signup || mode === 'login') ? '<p class="notice-box">You’ve been invited. '+(signup ? 'Create an account, confirm your email in this browser, and you’ll be let straight in.' : 'Sign in or create an account in this browser to accept it.')+'</p>' : '')+
     (config.local ? '<p class="notice-box">Local fixtures only. Sign in with ava@neighborhood.test and local-fixture-pass.</p>' : '')+
     (mode === 'link-expired' ? '<p class="notice-box">This link is expired or was opened in a different browser. Request a new link.</p>' : '')+
     (!config.configured ? '<p class="notice-box">Account access is being configured.</p>' : '')+
@@ -70,10 +76,12 @@ export function information(route,signedIn) {
     action('Back',signedIn?'feed':'','outline','back')+'</section></main>';
 }
 
-export function joinView(available,canJoin) {
+export function joinView(available,canJoin,invite = '') {
+  const open = canJoin || !!invite;
   return '<main id="content" class="auth-wrap"><a href="#">'+brand+'</a><section class="auth-card">'+
     heading('SET UP YOUR PROFILE','Where do you call home?','Tap the map to drop a pin where you live or run a local business, or choose from the list.')+
-    (!canJoin ? '<p class="notice-box">This account has not been admitted to the pilot. Contact the pilot organizer for access.</p>' : form('join',field('Display name','name',{min:2,max:50,hint:'A first name and last initial is enough.'})+
+    (invite && !canJoin ? '<p class="notice-box">You’re joining with an invite link. Welcome!</p>' : '')+
+    (!open ? '<p class="notice-box">Your account is waiting to be admitted. You’ll get an email when you’re in. If someone sent you an invite link, open it in this browser.</p>' : form('join',(invite?hidden('invite',invite):'')+field('Display name','name',{min:2,max:50,hint:'A first name and last initial is enough.'})+
     '<div id="map-root" class="map small" data-pin="true"><p class="quiet map-wait">Loading the map…</p></div>'+
     '<p class="small" id="map-note">The pin only picks your neighborhood. Its position is never sent or stored.</p>'+
     select('Your neighborhood','area',available.map((a)=>[a.id,a.name+' · '+a.region]),'','Select a neighborhood')+
@@ -96,10 +104,17 @@ export function shell(context,selected,body,aside = '') {
   return '<header class="app-header"><div class="app-header-inner"><a href="#feed" aria-label="NeighborhoodOS home">'+brand+'</a><span class="head-area">'+icon('pin',16)+esc(area)+'</span>'+
     '<span class="head-tools"><a class="icon-link map-link" href="#map" aria-label="Neighborhood map">'+icon('pin',20)+'</a><a class="icon-link" href="#search" aria-label="Search">'+icon('search',20)+'</a>'+
     '<a class="profile-link" href="#account" aria-label="Account">'+avatar(context.member.name)+'</a></span></div></header>'+
-    '<div class="workspace '+(aside?'has-aside':'')+'"><aside class="sidebar"><p class="eyebrow">YOUR NEIGHBORHOOD</p>'+nav(context.staff?[...navigation,['moderation','Moderation','shield']]:navigation,'side-nav')+
+    '<div class="workspace '+(aside?'has-aside':'')+'"><aside class="sidebar"><p class="eyebrow">YOUR NEIGHBORHOOD</p>'+nav([...navigation,...(context.staff?[['moderation','Moderation','shield']]:[]),...(context.staff==='admin'?[['admin','Admin','user']]:[])],'side-nav')+
     '<div class="side-help"><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></aside>'+
     '<main id="content" tabindex="-1" class="app-main">'+body+'</main>'+
     (aside?'<aside class="rightbar">'+aside+'</aside>':'')+'</div>'+nav(mobileNavigation,'bottom-nav');
+}
+export function landingPanel(area,value,config) {
+  const join = config.signups ? action('Join '+area.name,'signup','primary','arrow') : action('Pilot sign in','login','outline','arrow');
+  const line = typeof value === 'number' ? value+' neighbors have joined in '+area.name+'.' :
+    value === 'few' ? 'A few neighbors have joined in '+area.name+'. Help it grow.' : 'Nobody in '+area.name+' has joined yet. Be the first.';
+  return '<div class="split"><h3>'+esc(area.name)+'</h3>'+chip(area.region==='Cleveland'?'Cleveland':'Suburb','pin',value?'verified':'muted')+'</div>'+
+    '<p>'+esc(line)+'</p><div class="inline-actions">'+join+'</div>';
 }
 export function mapView(area) {
   return heading('NORTHEAST OHIO','Neighborhood map','Every Cleveland neighborhood and the suburbs around it. Tap one to see who is there.')+
@@ -419,8 +434,47 @@ export function accountView(context) {
     '<div class="inline-actions">'+action('View my public profile','neighbor/'+ref(member.id),'outline','user')+'</div></section>'+
     residencyPanel(context)+
     '<section class="card panel"><h2>Your activity</h2><div class="inline-actions">'+action('My business profiles','manage','outline','shop')+
-    action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+'</div></section>'+
-    '<section class="card panel"><h2>Account access</h2>'+form('logout',button('Sign out','outline'))+'</section>';
+    action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+(context.staff==='admin'?action('People and invites','admin','outline','user'):'')+'</div></section>'+
+    '<section class="card panel"><h2>Email</h2><p class="quiet">'+esc(context.email ?? '')+'</p>'+
+      form('set_email_notices',hidden('on',context.emailNotices?'false':'true')+'<p class="small">'+(context.emailNotices ?
+        'You get an email when someone replies to you, sends you a message, or posts a safety alert in your neighborhood.' :
+        'Email notices are off. You will only see replies, messages and alerts in the app.')+'</p>'+
+        button(context.emailNotices?'Turn off email notices':'Turn on email notices','outline'))+'</section>'+
+    '<section class="card panel"><h2>Account access</h2>'+form('logout',button('Sign out','outline'))+
+      '<details class="danger"><summary>Delete my account</summary><p class="small">This permanently deletes your account and everything you posted: posts, replies, messages, reviews, photos and business profiles. It cannot be undone.</p>'+
+      form('delete_account',field('Type DELETE to confirm','confirm',{min:6,max:6,autocomplete:'off',extra:'autocapitalize="characters" spellcheck="false"'})+
+        button('Delete my account permanently','danger'))+'</details></section>';
+}
+const roleLabel = { admin:'Admin', moderator:'Moderator' };
+export function adminView(data,areas,created) {
+  const origin = location.origin;
+  const inviteLink = (code) => origin+'/#invite/'+code;
+  const live = (i) => !i.revoked_at && new Date(i.expires_at) > new Date() && i.uses < i.max_uses;
+  return heading('ADMIN','People and invites',data.members+' members · '+data.admitted+' admitted and not joined yet · '+data.pending.length+' waiting')+
+    (created ? '<section class="card panel invite-created"><h2>Invite link ready</h2>'+
+      '<p class="quiet">'+(created.emailed?'We emailed it as well. ':'')+'Anyone with this link is admitted, up to the number of uses you set.</p>'+
+      '<div class="copy-row"><input readonly value="'+esc(inviteLink(created.code))+'" aria-label="Invite link"><button class="button primary" type="button" data-copy="'+esc(inviteLink(created.code))+'">Copy link</button></div></section>' : '')+
+    '<section class="detail-section"><h2>Waiting to be admitted <small>'+data.pending.length+'</small></h2>'+
+    (data.pending.length ? '<div class="cards">'+data.pending.map((p)=>'<article class="card panel admin-row"><div><strong>'+esc(p.email)+'</strong>'+
+      '<small>Signed up '+esc(date(p.created_at))+(p.confirmed?'':' · email not confirmed yet')+'</small></div>'+
+      form('admit',hidden('id',p.id)+button('Admit','outline','check'))+'</article>').join('')+'</div>' :
+      blank('user','Nobody is waiting','New sign-ups without an invite appear here.'))+'</section>'+
+    '<section class="card panel"><h2>Create an invite link</h2><p class="quiet">Share it by text, email or flyer. People who use it skip the waiting list.</p>'+
+    form('create_invite',field('Who is it for? (only you see this)','note',{required:false,max:120,placeholder:'For example, Pearl Road block club'})+
+      field('Email it to (optional)','email',{type:'email',required:false,max:254,placeholder:'name@example.com'})+
+      select('Suggested neighborhood (optional)','area',[['','Let them choose'],...areas.map((a)=>[a.id,a.name])])+
+      '<div class="two-col">'+field('Number of uses','uses',{type:'number',max:3,value:'1',extra:'min="1" max="500" inputmode="numeric"'})+
+      field('Expires after (days)','days',{type:'number',max:2,value:'14',extra:'min="1" max="90" inputmode="numeric"'})+'</div>'+
+      button('Create invite link','primary','plus'))+'</section>'+
+    '<section class="detail-section"><h2>Invite links <small>'+data.invites.length+'</small></h2>'+
+    (data.invites.length ? '<div class="cards">'+data.invites.map((i)=>'<article class="card panel admin-row"><div><strong>'+esc(i.note || i.email || 'Invite '+i.code)+'</strong>'+
+      '<small>'+esc(i.uses+' of '+i.max_uses+' used'+(i.area?' · '+i.area:'')+' · '+(i.revoked_at?'revoked':new Date(i.expires_at) <= new Date()?'expired':'expires '+date(i.expires_at)))+'</small></div>'+
+      (live(i) ? '<div class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(inviteLink(i.code))+'">Copy link</button>'+
+        form('revoke_invite',hidden('id',i.id)+button('Revoke','ghost'))+'</div>' : chip(i.revoked_at?'Revoked':i.uses>=i.max_uses?'Used up':'Expired','','muted'))+'</article>').join('')+'</div>' :
+      '<p class="quiet">No invite links yet.</p>')+'</section>'+
+    '<section class="detail-section"><h2>Team</h2><p class="quiet">Moderators handle reports, reviews, appeals, vetting and postcards. Appeals need a second moderator, so aim for at least two.</p>'+
+    '<div class="cards">'+data.team.map((m)=>'<article class="card panel admin-row"><div><strong>'+esc(m.name)+(m.me?' (you)':'')+'</strong><small>'+esc(m.area)+(m.role?' · '+roleLabel[m.role]:'')+'</small></div>'+
+      (m.me ? '' : form('set_role',hidden('id',m.id)+select('Role for '+m.name,'role',[['','Member'],['moderator','Moderator'],['admin','Admin']],m.role ?? '')+button('Save','outline')))+'</article>').join('')+'</div></section>';
 }
 export function manageView(list,billing) {
   return back('Back to account','account')+heading('LOCAL BUSINESS','Manage business profiles','Free profiles let you show up locally, share updates and reply to service requests.',action('Add a profile','business-new','primary','plus'))+

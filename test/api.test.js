@@ -76,3 +76,31 @@ test('Stripe signature verifies raw bytes, rejects stale requests, and rejects t
   await assert.rejects(verifyStripeEvent(bytes,signature,secret,1400),/Invalid signature/);
   await assert.rejects(verifyStripeEvent(new TextEncoder().encode('{}'),signature,secret,timestamp),/Invalid signature/);
 });
+
+test('public counts are served without a session and may be cached briefly',async()=>{
+  const handler = makeHandler({env:{APP_ORIGIN:origin},database:{configured:true,counts:async()=>({areas:{'old-brooklyn':12},total:12,places:1})},billing:{enabled:false}});
+  const res = {headers:{},setHeader(k,v){this.headers[k.toLowerCase()]=v;},end(value){this.body=JSON.parse(value);}};
+  await handler({method:'GET',url:'/api/core?action=counts',headers:{},async *[Symbol.asyncIterator](){}},res);
+  assert.equal(res.statusCode,200);
+  assert.equal(res.headers['cache-control'],'public, max-age=300, s-maxage=300');
+  assert.deepEqual(res.body,{areas:{'old-brooklyn':12},total:12,places:1});
+});
+
+test('account deletion signs the browser out, and the daily job needs its secret',async()=>{
+  const calls = [];
+  const database = {configured:true,rpc:async(token,op,d)=>{ calls.push([op,d]); return {deleted:true}; },mail:async(d)=>{ calls.push(['mail',d]); return d.op==='purge' ? {purged:2} : []; }};
+  const handler = makeHandler({env:{APP_ORIGIN:origin,CRON_SECRET:'s3cret',SUPABASE_SECRET_KEY:'x'},database,billing:{enabled:false},mailer:{enabled:false}});
+  const res = await request(handler,'delete_account',{headers:{cookie:'__Host-nh_access=t'},body:{confirm:'DELETE'}});
+  assert.deepEqual(res.body,{deleted:true});
+  assert.deepEqual(calls[0],['delete_account',{confirm:'DELETE'}]);
+  assert.ok(res.headers['set-cookie'].every((c)=>/Max-Age=0/.test(c)));
+  const get = async (headers) => {
+    const out = {headers:{},setHeader(k,v){this.headers[k.toLowerCase()]=v;},end(v){this.body=v?JSON.parse(v):null;}};
+    await handler({method:'GET',url:'/api/core?action=deliver',headers,async *[Symbol.asyncIterator](){}},out);
+    return out;
+  };
+  assert.equal((await get({})).statusCode,401);
+  assert.equal((await get({authorization:'Bearer wrong'})).statusCode,401);
+  const ok = await get({authorization:'Bearer s3cret'});
+  assert.deepEqual([ok.statusCode,ok.body],[200,{sent:0,failed:0,purged:2}]);
+});

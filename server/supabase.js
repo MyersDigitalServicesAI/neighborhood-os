@@ -54,6 +54,8 @@ export function supabaseAdapter(env, request = fetch) {
     refresh: (refresh_token) => call('/auth/v1/token?grant_type=refresh_token', { payload: { refresh_token } }),
     logout: (token) => call('/auth/v1/logout?scope=local', { token, payload: {} }),
     rpc: (token, op, d) => call('/rest/v1/rpc/neighborhood_app', { token, payload: { op, d } }),
+    counts: () => call('/rest/v1/rpc/neighborhood_counts', { payload: {} }),
+    mail: (d) => call('/rest/v1/rpc/neighborhood_mail', { admin: true, payload: { d } }),
     syncBilling: (d) => call('/rest/v1/rpc/neighborhood_billing', { admin: true, payload: { d } })
   };
 }

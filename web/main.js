@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -62,6 +62,33 @@ async function showMap(options) {
   try { return await (await import('./map.js')).mount(root,options); }
   catch { root.innerHTML = '<p class="notice-box">The map could not be loaded. You can still use the list.</p>'; return null; }
 }
+const inviteKey = 'nh_invite';
+let createdInvite = null;
+function storedInvite() {
+  try { return localStorage.getItem(inviteKey) ?? ''; } catch { return ''; }
+}
+function storeInvite(code) {
+  try { if (code) localStorage.setItem(inviteKey,code); else localStorage.removeItem(inviteKey); } catch { /* Private browsing: the code stays in the address only. */ }
+}
+let countsPromise;
+async function showLandingMap(current) {
+  countsPromise ??= raw('counts').catch(()=>{ countsPromise = null; return null; });
+  const counts = await countsPromise;
+  if (current !== version || !document.querySelector('#map-root')) return;
+  const values = counts?.areas ?? {};
+  const levels = Object.fromEntries(Object.entries(values).map(([id,value])=>[id,typeof value === 'number' ? 3 : 2]));
+  const total = document.querySelector('#map-total');
+  if (counts && total) {
+    total.textContent = counts.total === 'few' || !counts.places ? 'We are just getting started. Tap your neighborhood and be one of the first to join.' :
+      counts.total+' neighbors have joined across '+counts.places+' '+(counts.places===1?'neighborhood':'neighborhoods and suburbs')+'. Tap yours to see who is there.';
+  }
+  await showMap({levels,onPick:(picked)=>{
+    const panel = document.querySelector('#map-panel');
+    if (!panel) return;
+    panel.innerHTML = picked ? view.landingPanel(picked,values[picked.id],config) :
+      '<p class="quiet">That spot is outside the areas we cover. Tap a neighborhood or suburb.</p>';
+  }});
+}
 async function sync() {
   context = await rpc('bootstrap');
   synced = Date.now();
@@ -110,20 +137,34 @@ async function render() {
     app.innerHTML = view.information(key,signedIn);
     return;
   }
+  if (key === 'invite') {
+    if (/^[A-Za-z0-9]{10}$/.test(arg)) storeInvite(arg.toUpperCase());
+    return go(!signedIn ? (config.signups ? 'signup' : 'login') : context.member ? 'feed' : 'join');
+  }
   if (key === 'reset-password' || key === 'link-expired' || (!signedIn && authRoutes.has(key))) {
-    app.innerHTML = view.authView(key,config);
+    app.innerHTML = view.authView(key,{...config,invite:!!storedInvite()});
     return;
   }
   if (!signedIn) {
-    app.innerHTML = guarded.has(key) ? view.authView('login',config) : view.landing(config);
+    app.innerHTML = guarded.has(key) ? view.authView('login',{...config,invite:!!storedInvite()}) : view.landing(config);
+    if (!guarded.has(key)) await showLandingMap(current);
     return;
   }
   if (!context.member) {
-    app.innerHTML = view.joinView(context.areas,context.canJoin);
+    let invite = storedInvite();
+    let suggested = '';
+    if (invite && !context.canJoin) {
+      const info = await rpc('invite_info',{invite}).catch(()=>null);
+      if (current !== version) return;
+      if (!info?.valid) { storeInvite(''); invite = ''; show('That invite link has expired or been used up. Ask for a new one.'); }
+      else suggested = info.area ?? '';
+    }
+    app.innerHTML = view.joinView(context.areas,context.canJoin,invite);
     const choice = app.querySelector('select[name="area"]');
     const note = app.querySelector('#map-note');
     if (!choice) return;
-    const map = await showMap({pin:true,onPick:(picked)=>{
+    if (suggested) choice.value = suggested;
+    const map = await showMap({pin:true,selected:suggested || undefined,onPick:(picked)=>{
       const known = picked && [...choice.options].some((option)=>option.value===picked.id);
       choice.value = known ? picked.id : '';
       note.textContent = known ? 'Pin dropped in '+picked.name+'. Its position is never sent or stored.' :
@@ -231,6 +272,12 @@ async function render() {
         page = 'account';
         content = view.myReviewsView(await rpc('my_reviews'));
         break;
+      case 'admin': {
+        const data = await rpc('admin');
+        content = view.adminView(data,context.areas,createdInvite);
+        createdInvite = null;
+        break;
+      }
       case 'moderation':
         content = view.moderationView(await rpc('moderation'));
         break;
@@ -313,6 +360,13 @@ async function submit(operation,data,element) {
     await sync();
     return go('feed');
   }
+  if (operation === 'delete_account') {
+    await raw('delete_account',data);
+    context = null;
+    storeInvite('');
+    show('Your account and everything you posted have been deleted.');
+    return go('');
+  }
   if (operation === 'logout') {
     await raw('logout',{});
     context = null;
@@ -344,6 +398,19 @@ async function submit(operation,data,element) {
     case 'delete_post':
       show('Post deleted.');
       return go('feed');
+    case 'create_invite':
+      createdInvite = result;
+      return render();
+    case 'admit':
+      show('Admitted. They can now choose a neighborhood.');
+      return render();
+    case 'set_role':
+      show('Role saved.');
+      return render();
+    case 'revoke_invite':
+      show('Invite revoked.');
+      return render();
+    case 'set_email_notices':
     case 'update_profile':
     case 'request_residency':
     case 'cancel_residency':
@@ -354,6 +421,7 @@ async function submit(operation,data,element) {
       show('Password saved.');
       return go('feed');
     case 'join':
+      storeInvite('');
       await sync();
       return go('feed');
     case 'create_post':
@@ -379,6 +447,12 @@ async function submit(operation,data,element) {
 }
 
 app.addEventListener('click',async (event)=>{
+  const copy = event.target.closest('[data-copy]');
+  if (copy) {
+    try { await navigator.clipboard.writeText(copy.dataset.copy); show('Invite link copied.'); }
+    catch { show('Copy this link: '+copy.dataset.copy); }
+    return;
+  }
   const control = event.target.closest('[data-share]');
   if (!control) return;
   const link = location.origin+'/#'+control.dataset.share;
