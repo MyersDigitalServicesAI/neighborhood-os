@@ -2,10 +2,10 @@ import { action, ago, avatar, back, blank, brand, button, categories, check, chi
   illustration, money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas } from './ui.js';
 
 export function landing(config) {
-  return '<header class="landing-header wrap"><a href="#" aria-label="NeighborhoodOS home">'+brand+'</a><nav aria-label="Main navigation"><a class="desktop-link" href="#standards">Community standards</a>'+
+  return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="desktop-link" href="#standards">Community standards</a>'+
     action('Sign in','login','outline')+'</nav></header><main id="content" class="wrap landing">'+
     '<section class="hero"><div class="hero-copy">'+chip('Northeast Ohio pilot','pin','location')+
-    '<h1>Good things happen <em>close to home.</em></h1>'+
+    '<h1>Where neighborhoods <em>stay connected.</em></h1>'+
     '<p>Meet the people around you, find a local recommendation, and keep up with what’s happening in your neighborhood.</p>'+
     '<div class="hero-actions">'+action(config.signups ? 'Join your neighborhood' : 'Pilot sign in',config.signups ? 'signup' : 'login','primary','arrow')+
     action('How it works','standards','ghost')+'</div><small>Free for neighbors and local businesses.</small></div>'+
@@ -39,7 +39,7 @@ export function authView(mode,config) {
   const credential = (signup || reset) ? {min:12,autocomplete:'new-password',hint:'At least 12 characters.'} : {autocomplete:'current-password'};
   const fields = (reset ? '' : field('Email address','email',{type:'email',max:254,autocomplete:'email'}))+
     (recovery ? '' : field('Password','password',{type:'password',max:72,...credential}));
-  return '<main id="content" class="auth-wrap"><a href="#" aria-label="NeighborhoodOS home">'+brand+'</a><section class="auth-card">'+
+  return '<main id="content" class="auth-wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><section class="auth-card">'+
     heading('NORTHEAST OHIO',title,body)+
     (config.invite && (signup || mode === 'login') ? '<p class="notice-box">You’ve been invited. '+(signup ? 'Create an account, confirm your email in this browser, and you’ll be let straight in.' : 'Sign in or create an account in this browser to accept it.')+'</p>' : '')+
     (config.local ? '<p class="notice-box">Local fixtures only. Sign in with ava@neighborhood.test and local-fixture-pass.</p>' : '')+
@@ -70,8 +70,8 @@ export function information(route,signedIn) {
     ['What the badge means','A Vetted Business badge means staff documented business identity, control of a public business contact, and applicable license or insurance checks, and the business paid the one-time $250 vetting fee. Vetting is rechecked every year at no further charge and ends if the business changes its contact details or category. The badge carries no workmanship guarantee.'],
     ['Selling and safety alerts','List only items you own and may legally sell. Meet in a public place. Safety alerts are for urgent, firsthand local information. Describe what happened, never who you think someone is.']
   ];
-  return '<main id="content" class="auth-wrap policy"><a href="'+(signedIn?'#feed':'#')+'" aria-label="NeighborhoodOS home">'+brand+'</a><section class="auth-card">'+
-    heading('NEIGHBORHOODOS',isPrivacy?'Privacy notice':'Community standards',isPrivacy?'How information is used during the pilot.':'The ground rules for a useful local community.')+
+  return '<main id="content" class="auth-wrap policy"><a href="'+(signedIn?'#feed':'#')+'" aria-label="Nabora home">'+brand+'</a><section class="auth-card">'+
+    heading('NABORA',isPrivacy?'Privacy notice':'Community standards',isPrivacy?'How information is used during the pilot.':'The ground rules for a useful local community.')+
     copy.map(([title,body])=>'<section><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p></section>').join('')+
     action('Back',signedIn?'feed':'','outline','back')+'</section></main>';
 }
@@ -101,7 +101,7 @@ export function shell(context,selected,body,aside = '') {
     return '<nav class="'+cls+'" aria-label="Workspace">'+items.map(([route,label,image])=>'<a href="#'+route+'"'+(selected===route?' class="active" aria-current="page"':'')+'>'+
       icon(image,20)+'<span>'+esc(label)+'</span>'+(route==='notifications'&&unread?'<b class="count">'+(unread>99?'99+':unread)+'</b>':'')+'</a>').join('')+'</nav>';
   }
-  return '<header class="app-header"><div class="app-header-inner"><a href="#feed" aria-label="NeighborhoodOS home">'+brand+'</a><span class="head-area">'+icon('pin',16)+esc(area)+'</span>'+
+  return '<header class="app-header"><div class="app-header-inner"><a href="#feed" aria-label="Nabora home">'+brand+'</a><span class="head-area">'+icon('pin',16)+esc(area)+'</span>'+
     '<span class="head-tools"><a class="icon-link map-link" href="#map" aria-label="Neighborhood map">'+icon('pin',20)+'</a><a class="icon-link" href="#search" aria-label="Search">'+icon('search',20)+'</a>'+
     '<a class="profile-link" href="#account" aria-label="Account">'+avatar(context.member.name)+'</a></span></div></header>'+
     '<div class="workspace '+(aside?'has-aside':'')+'"><aside class="sidebar"><p class="eyebrow">YOUR NEIGHBORHOOD</p>'+nav([...navigation,...(context.staff?[['moderation','Moderation','shield']]:[]),...(context.staff==='admin'?[['admin','Admin','user']]:[])],'side-nav')+
@@ -126,7 +126,7 @@ export function mapPanel(picked,status,counts) {
   const members = counts?.members ?? 0;
   const posts = counts?.posts ?? 0;
   return '<div class="split"><h2>'+esc(picked.name)+'</h2>'+chip(status==='home'?'Your neighborhood':status==='near'?'Nearby':picked.region,'pin',status==='home'?'verified':status==='near'?'location':'muted')+'</div>'+
-    '<p class="quiet">'+esc(picked.region==='Cleveland'?'City of Cleveland':'Cuyahoga County suburb')+' · '+members+' '+(members===1?'neighbor':'neighbors')+' on NeighborhoodOS · '+
+    '<p class="quiet">'+esc(picked.region==='Cleveland'?'City of Cleveland':'Cuyahoga County suburb')+' · '+members+' '+(members===1?'neighbor':'neighbors')+' on Nabora · '+
     posts+' recent '+(posts===1?'post':'posts')+' you can see</p>'+
     (members===0?'<p class="small">Nobody has joined from here yet.</p>':'')+
     '<div class="inline-actions">'+(status==='home'?action('Open my neighborhood feed','feed','primary','home'):
