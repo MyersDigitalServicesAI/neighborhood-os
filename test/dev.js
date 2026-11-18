@@ -19,4 +19,4 @@ const handler = makeHandler({ env,database,local:true });
 createServer((req,res) => {
   if (req.url?.split('?')[0] === '/api/core') return handler(req,res);
   vite.middlewares(req,res);
-}).listen(port,'127.0.0.1',() => console.log('NeighborhoodOS listening on ' + env.APP_ORIGIN));
+}).listen(port,'127.0.0.1',() => console.log('Nabora listening on ' + env.APP_ORIGIN));

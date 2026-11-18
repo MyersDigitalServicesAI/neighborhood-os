@@ -13,17 +13,17 @@ export function compose(item,origin) {
       (p.actor ?? 'A neighbor')+' sent you a private message. For your privacy the message itself is only shown in the app.','Open your messages',link('thread/'+p.thread)],
     alert:() => ['Safety alert'+(p.area ? ' in '+p.area : '')+': '+(p.title ?? ''),
       (p.actor ?? 'A neighbor')+' posted a safety alert'+(p.area ? ' in '+p.area : '')+': '+(p.title ?? '')+'.','See the alert',link('post/'+p.post)],
-    admitted:() => ['You’re in. Welcome to NeighborhoodOS',
+    admitted:() => ['You’re in. Welcome to Nabora',
       'Your account has been admitted. Sign in and choose your neighborhood to start.','Choose my neighborhood',link('login')],
-    invite:() => [(p.inviter ?? 'A neighbor')+' invited you to NeighborhoodOS',
-      (p.inviter ?? 'A neighbor')+' invited you to join your neighbors on NeighborhoodOS'+(p.area ? ' in '+p.area : '')+'. Open the link in the browser you will use, create an account, and you will be let straight in.',
+    invite:() => [(p.inviter ?? 'A neighbor')+' invited you to Nabora',
+      (p.inviter ?? 'A neighbor')+' invited you to join your neighbors on Nabora'+(p.area ? ' in '+p.area : '')+'. Open the link in the browser you will use, create an account, and you will be let straight in.',
       'Accept the invite',link('invite/'+p.code)]
   };
   const build = templates[item.kind];
   if (!build) return null;
   const [subject,line,button,url] = build();
   const footer = item.kind === 'invite' ? 'If you were not expecting this, you can ignore it.' :
-    'You get these emails because you have a NeighborhoodOS account. Turn them off under Account in the app: '+link('account');
+    'You get these emails because you have a Nabora account. Turn them off under Account in the app: '+link('account');
   const text = greeting+'\n\n'+line+'\n\n'+button+': '+url+'\n\n'+footer+'\n';
   const html = '<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#182b23;max-width:520px">'+
     '<p>'+esc(greeting)+'</p><p>'+esc(line)+'</p><p><a href="'+esc(url)+'" style="display:inline-block;background:#194633;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:bold">'+esc(button)+'</a></p>'+

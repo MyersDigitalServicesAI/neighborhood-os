@@ -1,6 +1,6 @@
 {
-  "name": "NeighborhoodOS",
-  "short_name": "Neighborhood",
+  "name": "Nabora",
+  "short_name": "Nabora",
   "description": "Your neighborhood feed, marketplace, safety alerts and vetted local businesses.",
   "start_url": "/#feed",
   "scope": "/",

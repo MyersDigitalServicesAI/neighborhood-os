@@ -1,4 +1,6 @@
-# NeighborhoodOS
+# Nabora
+
+Where neighborhoods stay connected.
 
 A mobile-first Northeast Ohio neighborhood app. The initial pilot areas are Old Brooklyn, Parma, Brook Park, and Lakewood. People choose and attest to their neighborhood. Address verification is optional and deletes the address once a postcard is mailed.
 
@@ -52,7 +54,7 @@ For a specific system Chromium, set CHROMIUM_PATH. For local app testing against
 4. Keep APP_ORIGIN fixed in hosted environments. Use SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY for standard access. Leave Stripe and the Supabase backend secret unset for a no-billing pilot. Enable real public enrollment only when both the app OPEN_SIGNUPS and the database neighborhood.launch_settings.public_enrollment gates are intentionally opened.
 5. Schedule `select neighborhood.purge_residency()` daily with the backend role (for example with pg_cron) so unfinished address requests are deleted even when no moderator opens the queue. Opening the moderation queue also runs it.
 6. Start with a private cohort. Assign an operator for community reports, suspected review fraud, appeals, business vetting, and account-data requests. Publish a support contact and an approved retention policy. Define the identity and privacy escalation path before a public launch. Neighborhood membership is self-attested.
-7. For Vercel, use a new NeighborhoodOS project, the checked-in Vite settings, and a private preview before a public deployment. Confirm the team plan permits the intended use. The GitHub copy should be a dedicated private repository. Keep provider credentials, hosted test passwords, and test session tokens out of source.
+7. For Vercel, use a new Nabora project, the checked-in Vite settings, and a private preview before a public deployment. Confirm the team plan permits the intended use. The GitHub copy should be a dedicated private repository. Keep provider credentials, hosted test passwords, and test session tokens out of source.
 
 ## Vetting procedure
 

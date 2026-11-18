@@ -176,7 +176,7 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
       return reply(res,200,result);
     } catch (error) {
       if (error instanceof Problem) return reply(res,error.status,{ error:error.message });
-      console.error('NeighborhoodOS request failed',action,error?.name ?? 'Error');
+      console.error('Nabora request failed',action,error?.name ?? 'Error');
       return reply(res,502,{ error:'The service is temporarily unavailable.' });
     }
   };
