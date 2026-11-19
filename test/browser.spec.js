@@ -322,3 +322,49 @@ test('an admin creates an invite link and admits a waiting account; a member del
   await expect(page.getByRole('alert')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('a host shows a check-in QR code that verifies a resident, and two neighbors vouch someone in',async({page,context})=>{
+  await page.setViewportSize({width:390,height:844});
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'rina');
+  await page.goto('/#account');
+  await page.getByRole('link',{name:'Run a check-in'}).click();
+  await page.getByLabel('Meeting name').fill('Old Brooklyn CDC monthly meeting');
+  await page.locator('form[data-action="create_checkin"] select[name="area"]').selectOption({label:'Old Brooklyn'});
+  await page.getByRole('button',{name:'Start check-in'}).click();
+  await expect(page.getByRole('heading',{name:'Old Brooklyn CDC monthly meeting'})).toBeVisible();
+  await expect(page.locator('#qr-root svg path')).toHaveCount(1);
+  const code = (await page.locator('.checkin-code strong').textContent()).split('#checkin/')[1];
+  expect(code).toMatch(/^[A-HJ-NP-Z2-9]{8}$/);
+  await page.screenshot({path:'test-results/checkin-host-mobile.png',fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+
+  // The host checks themself in from the code, the way a phone camera would open it.
+  await page.goto('/#checkin/'+code);
+  await page.getByRole('button',{name:'Check in and verify me'}).click();
+  await expect(page.getByText('You’re checked in and verified. Welcome!')).toBeVisible();
+  await expect(page.getByText('at an in-person check-in',{exact:false})).toBeVisible();
+  await page.goBack();
+  await page.goto('/#host');
+  await page.getByRole('link',{name:/Old Brooklyn CDC monthly meeting/}).click();
+  await expect(page.locator('.admin-row',{hasText:'Rina P.'})).toContainText('verified here');
+
+  // Rina and Ava (verified by postcard earlier) vouch for Luis.
+  await page.goto('/#search?q=Luis');
+  await page.locator('a.thread-row',{hasText:'Luis G.'}).click();
+  const luis = new URL(page.url()).hash.split('/')[1];
+  await page.goto('/#neighbor/'+luis);
+  await page.getByLabel('I know this person and that they live in Old Brooklyn.').check();
+  await page.getByRole('button',{name:'Vouch for Luis G.'}).click();
+  await expect(page.getByText('One more verified neighbor will verify them.',{exact:false})).toBeVisible();
+  await expect(page.getByText('1 of 2 vouches so far',{exact:false})).toBeVisible();
+  await logout(page);
+  await login(page,'ava');
+  await page.goto('/#neighbor/'+luis);
+  await page.getByLabel('I know this person and that they live in Old Brooklyn.').check();
+  await page.getByRole('button',{name:'Vouch for Luis G.'}).click();
+  await expect(page.getByText('That was the second vouch',{exact:false})).toBeVisible();
+  await expect(page.getByText('Verified neighbor ·',{exact:false})).toBeVisible();
+  expect(errors).toEqual([]);
+});
