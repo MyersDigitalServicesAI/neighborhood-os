@@ -118,3 +118,6 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .copy-row{display:flex;gap:8px;flex-wrap:wrap}.copy-row input{flex:1;min-width:0;padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:#f7f7ef;font:600 .9rem/1.2 ui-monospace,Menlo,monospace}
 .invite-created{border-color:#9cc3a2;background:#f3f8ec}
 .danger summary{color:#a23e2a}.button.danger{background:#a23e2a;border-color:#a23e2a;color:#fff}.button.danger:hover{background:#8a3322}
+.qr{width:min(100%,360px);aspect-ratio:1;margin:8px auto;background:#fff;border-radius:12px;padding:8px}.qr svg{width:100%;height:100%;display:block}
+.checkin-code{text-align:center;color:var(--quiet);font-size:.9rem;word-break:break-word}.checkin-card h1{margin:10px 0 4px}
+.panel h3{font-size:1rem;margin:16px 0 4px}

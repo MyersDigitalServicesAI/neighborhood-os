@@ -76,11 +76,12 @@ export function information(route,signedIn) {
     action('Back',signedIn?'feed':'','outline','back')+'</section></main>';
 }
 
-export function joinView(available,canJoin,invite = '') {
-  const open = canJoin || !!invite;
+export function joinView(available,canJoin,invite = '',checkin = '') {
+  const open = canJoin || !!invite || !!checkin;
   return '<main id="content" class="auth-wrap"><a href="#">'+brand+'</a><section class="auth-card">'+
     heading('SET UP YOUR PROFILE','Where do you call home?','Tap the map to drop a pin where you live or run a local business, or choose from the list.')+
     (invite && !canJoin ? '<p class="notice-box">You’re joining with an invite link. Welcome!</p>' : '')+
+    (checkin && !invite && !canJoin ? '<p class="notice-box">You’re joining from a neighborhood check-in. Choose your neighborhood, then you’ll be verified.</p>' : '')+
     (!open ? '<p class="notice-box">Your account is waiting to be admitted. You’ll get an email when you’re in. If someone sent you an invite link, open it in this browser.</p>' : form('join',(invite?hidden('invite',invite):'')+field('Display name','name',{min:2,max:50,hint:'A first name and last initial is enough.'})+
     '<div id="map-root" class="map small" data-pin="true"><p class="quiet map-wait">Loading the map…</p></div>'+
     '<p class="small" id="map-note">The pin only picks your neighborhood. Its position is never sent or stored.</p>'+
@@ -320,6 +321,7 @@ export function profileView(profile,posts,me) {
       form(profile.blocked?'unblock':'block',hidden('peer',profile.id)+button(profile.blocked?'Unblock':'Block','ghost')))+'</div></section>'+
     (profile.businesses.length?'<section class="detail-section"><h2>Businesses</h2><div class="cards">'+profile.businesses.map((b)=>
       '<a class="card thread-row" href="#business/'+ref(b.id)+'"><span class="feature-icon">'+icon('shop',20)+'</span><span><strong>'+esc(b.name)+'</strong><small>'+esc(b.category)+'</small></span>'+(b.verified?verified():'')+icon('arrow',18)+'</a>').join('')+'</div></section>':'')+
+    (self ? '' : vouchPanel(profile))+
     '<section class="detail-section"><h2>Recent posts</h2>'+(posts.length?'<div class="cards" id="feed-results">'+posts.map(postCard).join('')+'</div>':'<p class="quiet">No posts yet.</p>')+
     (posts.length===25?pager('feed-more',posts.at(-1),hidden('author',profile.id)):'')+'</section>';
 }
@@ -409,7 +411,7 @@ export function bubble(m,me) {
 function residencyPanel(context) {
   const state = context.residency;
   const inner = context.member.verified_at ?
-    '<p>'+chip('Verified neighbor','check','verified')+'</p><p class="quiet">Verified on '+esc(date(context.member.verified_at))+'. Your address was deleted when your postcard was mailed, and we keep only this date.</p>' :
+    '<p>'+chip('Verified neighbor','check','verified')+'</p><p class="quiet">Verified on '+esc(date(context.member.verified_at))+(verifiedHow[context.verifiedVia] ?? verifiedHow.postcard)+'</p>' :
     state==='pending' ?
       '<p class="notice-box">Your postcard is being prepared. Your address is held only until it is mailed, then erased.</p>'+
       form('cancel_residency',button('Withdraw and delete my address','outline')) :
@@ -421,7 +423,32 @@ function residencyPanel(context) {
       '<details><summary>'+icon('lock',14)+' Verify my address</summary>'+form('request_residency',
         field('Mailing address in your neighborhood','address',{min:8,max:200,autocomplete:'street-address',placeholder:'Street, city, ZIP'})+
         check('Use this address once to post my code, then delete it.','consent',true)+button('Send my postcard','primary','arrow'))+'</details>';
-  return '<section class="card panel"><h2>Address verification</h2>'+inner+'</section>';
+  const others = context.member.verified_at ? '' :
+    '<h3>Faster: ask two neighbors to vouch</h3><p class="quiet">Two verified neighbors from '+esc(area(context))+' or a neighborhood next to it can vouch that you live here. No address is involved. '+
+    '<strong>'+esc(String(context.vouches ?? 0))+' of 2</strong> so far.</p>'+
+    '<div class="copy-row"><input readonly value="'+esc(location.origin+'/#neighbor/'+context.member.id)+'" aria-label="Your profile link">'+
+    '<button class="button outline" type="button" data-copy="'+esc(location.origin+'/#neighbor/'+context.member.id)+'" data-copied="Profile link copied. Send it to a neighbor who knows you.">Copy my profile link</button></div>'+
+    '<h3>Or check in at a partner meeting</h3><p class="quiet">Community partners show a QR code at meetings. Scan it with your phone camera while signed in and you’re verified on the spot.</p>';
+  return '<section class="card panel"><h2>Address verification</h2>'+inner+others+'</section>';
+}
+const verifiedHow = {
+  postcard:'. Your address was deleted when your postcard was mailed, and we keep only this date.',
+  vouch:' by two neighbors who vouched for you. No address was ever collected.',
+  checkin:' at an in-person check-in. No address was ever collected.'
+};
+const area = (context) => context.areas.find((a)=>a.id===context.member.area_id)?.name ?? 'your neighborhood';
+function vouchPanel(profile) {
+  if (profile.verified) return '';
+  const count = esc(String(profile.vouches ?? 0));
+  return '<section class="card panel"><h2>Vouch for '+esc(profile.name)+'</h2>'+
+    (profile.vouched ?
+      '<p class="quiet">You vouched for '+esc(profile.name)+'. '+count+' of 2 vouches so far; they’re verified at 2.</p>'+
+      form('unvouch',hidden('id',profile.id)+button('Withdraw my vouch','ghost')) :
+    profile.canVouch ?
+      '<p class="quiet">Vouch only if you know '+esc(profile.name)+' and that they live in '+esc(profile.area)+'. Two vouches from verified neighbors give them the verified tick. '+count+' of 2 so far.</p>'+
+      form('vouch',hidden('id',profile.id)+check('I know this person and that they live in '+profile.area+'.','confirm',true)+button('Vouch for '+profile.name,'outline','check')) :
+      '<p class="quiet">'+count+' of 2 vouches. Verified neighbors from '+esc(profile.area)+' or a neighborhood next to it can vouch for '+esc(profile.name)+'.</p>')+
+    '</section>';
 }
 export function accountView(context) {
   const { member } = context;
@@ -434,7 +461,8 @@ export function accountView(context) {
     '<div class="inline-actions">'+action('View my public profile','neighbor/'+ref(member.id),'outline','user')+'</div></section>'+
     residencyPanel(context)+
     '<section class="card panel"><h2>Your activity</h2><div class="inline-actions">'+action('My business profiles','manage','outline','shop')+
-    action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+(context.staff==='admin'?action('People and invites','admin','outline','user'):'')+'</div></section>'+
+    action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+(context.staff==='admin'?action('People and invites','admin','outline','user'):'')+
+    (context.hostAreas?.length?action('Run a check-in','host','outline','pin'):'')+'</div></section>'+
     '<section class="card panel"><h2>Email</h2><p class="quiet">'+esc(context.email ?? '')+'</p>'+
       form('set_email_notices',hidden('on',context.emailNotices?'false':'true')+'<p class="small">'+(context.emailNotices ?
         'You get an email when someone replies to you, sends you a message, or posts a safety alert in your neighborhood.' :
@@ -472,6 +500,12 @@ export function adminView(data,areas,created) {
       (live(i) ? '<div class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(inviteLink(i.code))+'">Copy link</button>'+
         form('revoke_invite',hidden('id',i.id)+button('Revoke','ghost'))+'</div>' : chip(i.revoked_at?'Revoked':i.uses>=i.max_uses?'Used up':'Expired','','muted'))+'</article>').join('')+'</div>' :
       '<p class="quiet">No invite links yet.</p>')+'</section>'+
+    '<section class="card panel"><h2>Check-in hosts</h2><p class="quiet">Hosts, such as CDC staff, show a QR code at meetings that verifies residents of their neighborhood on the spot. They can see who checked in and undo a mistake.</p>'+
+    (data.hosts?.length ? '<div class="cards">'+data.hosts.map((h)=>'<article class="card panel admin-row"><div><strong>'+esc(h.name)+'</strong><small>Hosts '+esc(h.area)+'</small></div>'+
+      form('set_host',hidden('id',h.id)+hidden('area',h.area_id)+hidden('remove','true')+button('Remove','ghost'))+'</article>').join('')+'</div>' : '<p class="quiet">No hosts yet.</p>')+
+    '<details><summary>Add a host</summary>'+form('set_host',select('Member','id',data.team.map((m)=>[m.id,m.name+' · '+m.area]),'','Choose a member')+
+      select('Neighborhood they host','area',areas.map((a)=>[a.id,a.name]),'','Choose a neighborhood')+button('Add host','outline','plus'))+'</details>'+
+    '<div class="inline-actions">'+action('Run a check-in yourself','host','outline','pin')+'</div></section>'+
     '<section class="detail-section"><h2>Team</h2><p class="quiet">Moderators handle reports, reviews, appeals, vetting and postcards. Appeals need a second moderator, so aim for at least two.</p>'+
     '<div class="cards">'+data.team.map((m)=>'<article class="card panel admin-row"><div><strong>'+esc(m.name)+(m.me?' (you)':'')+'</strong><small>'+esc(m.area)+(m.role?' · '+roleLabel[m.role]:'')+'</small></div>'+
       (m.me ? '' : form('set_role',hidden('id',m.id)+select('Role for '+m.name,'role',[['','Member'],['moderator','Moderator'],['admin','Admin']],m.role ?? '')+button('Save','outline')))+'</article>').join('')+'</div></section>';
@@ -554,4 +588,41 @@ function vettingCard(v) {
         field('License and insurance check','licenseEvidence',{min:12,max:500,hint:'Record source, dates and checks, or explain which credentials are inapplicable and why.'})+
         check('I personally completed and documented these checks.','attestation',true)+'</div>':'')+
       field('Decision reason shown to the business','reason',{type:'textarea',min:12,max:700})+button('Save vetting decision','outline'))+'</details></article>';
+}
+
+export function checkinView(info,code,member) {
+  if (!info?.valid) return back('Back to feed','feed')+blank('flag','This check-in has ended','Ask the host for the current QR code, or verify from your account page.',action('Go to my account','account','outline'));
+  return '<section class="card panel checkin-card">'+chip(info.areaName,'pin','location')+'<h1>'+esc(info.label)+'</h1>'+
+    (member.verified_at ?
+      '<p class="quiet">You’re already a verified neighbor. Checking in just lets the host know you came.</p>' :
+      '<p class="quiet">Checking in verifies that you live in '+esc(info.areaName)+'. Only check in if that’s true: the host can see who checked in and undo it.</p>')+
+    form('checkin',hidden('checkin',code)+button(member.verified_at?'Check in':'Check in and verify me','primary','check'))+'</section>';
+}
+export function hostListView(list,areas,hostAreas) {
+  const choices = hostAreas.includes('*') ? areas : areas.filter((a)=>hostAreas.includes(a.id));
+  return heading('CHECK-INS','Run a check-in','Show the QR code at a meeting. Residents scan it with their phone camera and are verified on the spot.')+
+    '<section class="card panel"><h2>Start a check-in</h2>'+form('create_checkin',
+      field('Meeting name','label',{min:2,max:80,placeholder:'For example, Old Brooklyn CDC monthly meeting'})+
+      select('Neighborhood','area',choices.map((a)=>[a.id,a.name]),choices.length===1?choices[0].id:'','Choose a neighborhood')+
+      '<div class="two-col">'+field('Open for (hours)','hours',{type:'number',max:2,value:'3',extra:'min="1" max="12" inputmode="numeric"'})+
+      field('Most people','uses',{type:'number',max:3,value:'60',extra:'min="1" max="300" inputmode="numeric"'})+'</div>'+
+      '<p class="small">Keep the QR code on screen only in the room. Anyone who gets the code while it is open can check in, so end it when the meeting ends.</p>'+
+      button('Start check-in','primary','plus'))+'</section>'+
+    '<section class="detail-section"><h2>Recent check-ins</h2>'+(list.length ? '<div class="cards">'+list.map((c)=>
+      '<a class="card thread-row" href="#host-session/'+ref(c.id)+'"><span class="feature-icon">'+icon('pin',20)+'</span><span><strong>'+esc(c.label)+'</strong><small>'+
+      esc(c.area+' · '+c.uses+' checked in · '+(c.live?'open until '+new Date(c.expires_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'ended'))+'</small></span>'+icon('arrow',18)+'</a>').join('')+'</div>' :
+      '<p class="quiet">No check-ins yet.</p>')+'</section>';
+}
+export function hostSessionView(s) {
+  const link = location.origin+'/#checkin/'+s.code;
+  return back('All check-ins','host')+'<section class="card panel checkin-host">'+
+    '<div class="split"><h1>'+esc(s.label)+'</h1>'+chip(s.live?'Open':'Ended',s.live?'check':'',s.live?'verified':'muted')+'</div>'+
+    '<p class="quiet">'+esc(s.area)+' · '+esc(String(s.uses))+' of '+esc(String(s.max_uses))+' checked in'+(s.live?' · closes at '+esc(new Date(s.expires_at).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})):'')+'</p>'+
+    (s.live ? '<div id="qr-root" class="qr" data-link="'+esc(link)+'" aria-label="QR code for this check-in"></div>'+
+      '<p class="checkin-code">No camera? Open <strong>'+esc(location.host+'/#checkin/'+s.code)+'</strong></p>'+
+      form('end_checkin',hidden('id',s.id)+button('End check-in now','outline')) : '')+'</section>'+
+    '<section class="detail-section"><h2>Checked in <small>'+s.people.length+'</small></h2>'+(s.people.length ? '<div class="cards">'+s.people.map((p)=>
+      '<article class="card panel admin-row"><div><strong>'+esc(p.name)+'</strong><small>'+esc(p.area+' · '+(p.undone_at?'verification undone':p.verified?'verified here':'already verified'))+'</small></div>'+
+      (p.verified && !p.undone_at ? form('undo_checkin',hidden('id',s.id)+hidden('member',p.id)+button('Undo','ghost')) : '')+'</article>').join('')+'</div>' :
+      '<p class="quiet">Nobody yet. This list updates on its own.</p>')+'</section>';
 }

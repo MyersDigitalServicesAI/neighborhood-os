@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -70,6 +70,14 @@ function storedInvite() {
 function storeInvite(code) {
   try { if (code) localStorage.setItem(inviteKey,code); else localStorage.removeItem(inviteKey); } catch { /* Private browsing: the code stays in the address only. */ }
 }
+const checkinKey = 'nh_checkin';
+function storedCheckin() {
+  try { return localStorage.getItem(checkinKey) ?? ''; } catch { return ''; }
+}
+function storeCheckin(code) {
+  try { if (code) localStorage.setItem(checkinKey,code); else localStorage.removeItem(checkinKey); } catch { /* Private browsing: the code stays in the address only. */ }
+}
+let hostTimer;
 let countsPromise;
 async function showLandingMap(current) {
   countsPromise ??= raw('counts').catch(()=>{ countsPromise = null; return null; });
@@ -137,12 +145,18 @@ async function render() {
     app.innerHTML = view.information(key,signedIn);
     return;
   }
+  clearTimeout(hostTimer);
+  if (key === 'checkin') {
+    if (/^[A-Za-z2-9]{8}$/.test(arg)) storeCheckin(arg.toUpperCase());
+    if (!signedIn) return go(config.signups ? 'signup' : 'login');
+    if (!context.member) return go('join');
+  }
   if (key === 'invite') {
     if (/^[A-Za-z0-9]{10}$/.test(arg)) storeInvite(arg.toUpperCase());
     return go(!signedIn ? (config.signups ? 'signup' : 'login') : context.member ? 'feed' : 'join');
   }
   if (key === 'reset-password' || key === 'link-expired' || (!signedIn && authRoutes.has(key))) {
-    app.innerHTML = view.authView(key,{...config,invite:!!storedInvite()});
+    app.innerHTML = view.authView(key,{...config,invite:!!storedInvite() || !!storedCheckin()});
     return;
   }
   if (!signedIn) {
@@ -159,7 +173,14 @@ async function render() {
       if (!info?.valid) { storeInvite(''); invite = ''; show('That invite link has expired or been used up. Ask for a new one.'); }
       else suggested = info.area ?? '';
     }
-    app.innerHTML = view.joinView(context.areas,context.canJoin,invite);
+    let checkin = storedCheckin();
+    if (checkin && !context.canJoin && !invite) {
+      const info = await rpc('checkin_info',{checkin}).catch(()=>null);
+      if (current !== version) return;
+      if (!info?.valid) { storeCheckin(''); checkin = ''; show('That check-in has ended. Ask the host for the current QR code.'); }
+      else suggested = info.area ?? '';
+    }
+    app.innerHTML = view.joinView(context.areas,context.canJoin,invite,checkin);
     const choice = app.querySelector('select[name="area"]');
     const note = app.querySelector('#map-note');
     if (!choice) return;
@@ -272,6 +293,21 @@ async function render() {
         page = 'account';
         content = view.myReviewsView(await rpc('my_reviews'));
         break;
+      case 'checkin': {
+        page = 'account';
+        const code = storedCheckin();
+        content = view.checkinView(code ? await rpc('checkin_info',{checkin:code}) : null,code,member);
+        break;
+      }
+      case 'host':
+        page = 'account';
+        if (!context.hostAreas?.length) throw new ApiError(403,'Only check-in hosts can open this page.');
+        content = view.hostListView(await rpc('checkins'),context.areas,context.hostAreas);
+        break;
+      case 'host-session':
+        page = 'account';
+        content = view.hostSessionView(await rpc('checkin_host',{id}));
+        break;
       case 'admin': {
         const data = await rpc('admin');
         content = view.adminView(data,context.areas,createdInvite);
@@ -310,6 +346,12 @@ async function render() {
     if (mine && panel) panel.innerHTML = view.mapPanel(mine,'home',summary[mine.id]);
   }
   for (const node of app.querySelectorAll('form[data-action="decide_vetting"]')) setEvidence(node);
+  if (key === 'host-session') {
+    const root = document.querySelector('#qr-root');
+    if (root) (await import('./qr.js')).drawQr(root,root.dataset.link);
+    // The attendee list refreshes while the host keeps the page open.
+    hostTimer = setTimeout(()=>{ if (route().key === 'host-session' && !document.querySelector('form :focus')) render(); },10000);
+  }
 }
 
 const messages = {
@@ -318,7 +360,8 @@ const messages = {
   decide_content:'Content decision recorded.',report_content:'Report sent to staff.',close_post:'Post updated.', reply:'Reply posted.', apply_vetting:'Application sent to staff.',
   submit_review:'Review sent for human moderation.', report_review:'Report sent to staff.', appeal:'Appeal submitted.',
   decide_review:'Review decision recorded.', decide_appeal:'Appeal decision recorded.', decide_vetting:'Vetting decision recorded.',
-  update_business:'Business profile saved.', block:'Messages blocked.', unblock:'Messages unblocked.'
+  update_business:'Business profile saved.', block:'Messages blocked.', unblock:'Messages unblocked.',
+  unvouch:'Vouch withdrawn.', set_host:'Hosts updated.', end_checkin:'Check-in ended. The code no longer works.', undo_checkin:'Verification undone.'
 };
 const pages = {
   'feed-more': {op:'feed',target:'feed-results',render:view.postCard,size:25},
@@ -364,6 +407,7 @@ async function submit(operation,data,element) {
     await raw('delete_account',data);
     context = null;
     storeInvite('');
+    storeCheckin('');
     show('Your account and everything you posted have been deleted.');
     return go('');
   }
@@ -382,6 +426,7 @@ async function submit(operation,data,element) {
     if (Number.isNaN(starts.getTime())) throw new ApiError(400,'Choose when the event starts.');
     data.when = starts.toISOString();
   }
+  if (operation === 'join' && storedCheckin() && !data.invite) data.checkin = storedCheckin();
   const result = await rpc(operation,data);
   if (result?.ok === false) throw new ApiError(400,result.message ?? 'Try again.');
   if (!element.isConnected) return;
@@ -423,7 +468,17 @@ async function submit(operation,data,element) {
     case 'join':
       storeInvite('');
       await sync();
-      return go('feed');
+      return go(storedCheckin() ? 'checkin' : 'feed');
+    case 'vouch':
+      show(result.verified ? 'Thanks. That was the second vouch, so they’re now verified.' : 'Thanks for vouching. One more verified neighbor will verify them.');
+      return render();
+    case 'checkin':
+      storeCheckin('');
+      await sync();
+      show(result.already ? 'Checked in. Thanks for coming.' : 'You’re checked in and verified. Welcome!');
+      return go('account');
+    case 'create_checkin':
+      return go('host-session/'+result.id);
     case 'create_post':
       show('Post published.');
       return go('post/'+result.id);
@@ -449,7 +504,7 @@ async function submit(operation,data,element) {
 app.addEventListener('click',async (event)=>{
   const copy = event.target.closest('[data-copy]');
   if (copy) {
-    try { await navigator.clipboard.writeText(copy.dataset.copy); show('Invite link copied.'); }
+    try { await navigator.clipboard.writeText(copy.dataset.copy); show(copy.dataset.copied ?? 'Invite link copied.'); }
     catch { show('Copy this link: '+copy.dataset.copy); }
     return;
   }
