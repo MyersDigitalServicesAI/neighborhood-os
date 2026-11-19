@@ -64,6 +64,7 @@ export function billingAdapter(env, database, request = fetch) {
         'metadata[neighborhood_business]': approval.id, 'metadata[neighborhood_checkout]': approval.key,
         'payment_intent_data[metadata][neighborhood_business]': approval.id,
         'payment_intent_data[metadata][neighborhood_checkout]': approval.key,
+        'payment_intent_data[statement_descriptor_suffix]': 'NABORA',
         success_url: origin + '/#manage', cancel_url: origin + '/#manage',
         ...(approval.customer ? { customer: approval.customer } : {})
       }, 'neighborhood-checkout-' + approval.key);
@@ -73,7 +74,7 @@ export function billingAdapter(env, database, request = fetch) {
     async webhook(raw, signature) {
       if (!enabled) throw new Problem(503, 'Billing is disabled.');
       const event = await verifyStripeEvent(raw, signature, webhookSecret);
-      if (event.livemode !== key.startsWith('sk_live_')) throw new Problem(400, 'Billing mode mismatch.');
+      if (event.livemode !== /^[sr]k_live_/.test(key)) throw new Problem(400, 'Billing mode mismatch.');
       const obj = event.data?.object;
       const observedAt = new Date().toISOString();
       if (event.type === 'charge.refunded') {

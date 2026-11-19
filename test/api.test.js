@@ -104,3 +104,39 @@ test('account deletion signs the browser out, and the daily job needs its secret
   const ok = await get({authorization:'Bearer s3cret'});
   assert.deepEqual([ok.statusCode,ok.body],[200,{sent:0,failed:0,purged:2}]);
 });
+
+test('checkout charges the exact vetting price and labels the card statement NABORA', async () => {
+  const { billingAdapter } = await import('../server/billing.js');
+  const sent = [];
+  const fake = async (url, init) => {
+    sent.push({ url, body: init.body ? Object.fromEntries(init.body) : null });
+    if (url.endsWith('/prices/price_fixture')) return { ok:true, json:async()=>({ active:true, unit_amount:25000, currency:'usd', type:'one_time', recurring:null }) };
+    return { ok:true, json:async()=>({ url:'https://checkout.stripe.com/c/fixture' }) };
+  };
+  const billing = billingAdapter({ STRIPE_SECRET_KEY:'rk_live_fixture', STRIPE_PRICE_ID:'price_fixture', STRIPE_WEBHOOK_SECRET:'whsec_fixture',
+    APP_ORIGIN:'https://nabora.example', SUPABASE_SECRET_KEY:'sb_secret_fixture' }, {}, fake);
+  assert.deepEqual(await billing.checkout({ id:'biz', key:'key' }), { url:'https://checkout.stripe.com/c/fixture' });
+  const session = sent.find((call) => call.url.endsWith('/checkout/sessions')).body;
+  assert.equal(session['payment_intent_data[statement_descriptor_suffix]'], 'NABORA');
+  assert.equal(session['line_items[0][price]'], 'price_fixture');
+  assert.equal(session.success_url, 'https://nabora.example/#manage');
+});
+
+test('a live restricted key (rk_live_) accepts live webhooks and refuses test ones', async () => {
+  const { billingAdapter } = await import('../server/billing.js');
+  const secret = 'whsec_fixture';
+  const synced = [];
+  const fake = async () => ({ ok:true, json:async()=>({ id:'cs_live1', mode:'payment', status:'complete', payment_status:'paid', currency:'usd',
+    amount_subtotal:25000, amount_total:25000, payment_intent:'pi_live1', customer:'cus_1', metadata:{ neighborhood_business:'biz', neighborhood_checkout:'key' } }) });
+  const billing = billingAdapter({ STRIPE_SECRET_KEY:'rk_live_fixture', STRIPE_PRICE_ID:'price_fixture', STRIPE_WEBHOOK_SECRET:secret,
+    APP_ORIGIN:'https://nabora.example', SUPABASE_SECRET_KEY:'sb_secret_fixture' }, { syncBilling: async (state) => synced.push(state) }, fake);
+  const sign = (event) => {
+    const raw = new TextEncoder().encode(JSON.stringify(event));
+    const t = Math.floor(Date.now() / 1000);
+    return [raw, 't='+t+',v1='+createHmac('sha256', secret).update(t+'.'+JSON.stringify(event)).digest('hex')];
+  };
+  await billing.webhook(...sign({ livemode:true, type:'checkout.session.completed', data:{ object:{ id:'cs_live1' } } }));
+  assert.equal(synced.length, 1);
+  assert.equal(synced[0].paid, true);
+  await assert.rejects(billing.webhook(...sign({ livemode:false, type:'checkout.session.completed', data:{ object:{ id:'cs_live1' } } })), /mode mismatch/);
+});
