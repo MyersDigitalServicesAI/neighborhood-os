@@ -500,6 +500,12 @@ export function adminView(data,areas,created) {
       (live(i) ? '<div class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(inviteLink(i.code))+'">Copy link</button>'+
         form('revoke_invite',hidden('id',i.id)+button('Revoke','ghost'))+'</div>' : chip(i.revoked_at?'Revoked':i.uses>=i.max_uses?'Used up':'Expired','','muted'))+'</article>').join('')+'</div>' :
       '<p class="quiet">No invite links yet.</p>')+'</section>'+
+    '<section class="detail-section"><h2>Vetting fees <small>'+(data.fees?.length ?? 0)+'</small></h2><p class="quiet">Waive the $250 fee for founding businesses or partners. A waiver replaces the payment only: staff who don’t own the business still have to approve it. The reason is kept in the audit log.</p>'+
+    (data.fees?.length ? '<div class="cards">'+data.fees.map((f)=>'<article class="card panel admin-row"><div><strong>'+esc(f.name)+(f.mine?' (yours)':'')+'</strong><small>'+
+      esc(f.owner+' · vetting '+f.status+' · '+(f.waived?'fee waived':f.paid?'fee paid':'fee not paid'))+'</small></div>'+
+      (f.paid ? '' : '<details><summary>Waive fee</summary>'+form('waive_fee',hidden('id',f.id)+
+        field('Reason (kept in the audit log)','reason',{min:8,max:300,placeholder:'For example, founding business, first 10 in Old Brooklyn'})+button('Waive the $250 fee','outline'))+'</details>')+'</article>').join('')+'</div>' :
+      '<p class="quiet">No businesses have applied for vetting yet.</p>')+'</section>'+
     '<section class="card panel"><h2>Check-in hosts</h2><p class="quiet">Hosts, such as CDC staff, show a QR code at meetings that verifies residents of their neighborhood on the spot. They can see who checked in and undo a mistake.</p>'+
     (data.hosts?.length ? '<div class="cards">'+data.hosts.map((h)=>'<article class="card panel admin-row"><div><strong>'+esc(h.name)+'</strong><small>Hosts '+esc(h.area)+'</small></div>'+
       form('set_host',hidden('id',h.id)+hidden('area',h.area_id)+hidden('remove','true')+button('Remove','ghost'))+'</article>').join('')+'</div>' : '<p class="quiet">No hosts yet.</p>')+
@@ -516,7 +522,7 @@ export function manageView(list,billing) {
     (!billing?'<p class="notice-box">Payments are switched off during this pilot. You can use a free business profile and submit a vetting application.</p>':'')+
     (list.length?list.map((b)=>{
       const current = b.vetting==='approved' && new Date(b.vettingExpires).getTime()>Date.now();
-      return '<section class="card panel"><div class="split"><h2>'+esc(b.name)+'</h2>'+(b.verified?verified():b.paid?chip('Vetting fee paid','check','muted'):'')+'</div>'+
+      return '<section class="card panel"><div class="split"><h2>'+esc(b.name)+'</h2>'+(b.verified?verified():b.waived?chip('Vetting fee waived','check','muted'):b.paid?chip('Vetting fee paid','check','muted'):'')+'</div>'+
         '<p class="quiet">'+esc(b.vetting==='pending'?'Vetting application under review':current?'Vetting approved until '+date(b.vettingExpires):
           b.vetting==='approved'?'Vetting expired':b.vetting==='declined'?'Vetting declined':b.vetting==='revoked'?'Vetting revoked':'Vetting application available')+
           (current&&!b.paid?' · Pay the one-time fee to show your badge':'')+'</p>'+
