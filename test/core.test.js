@@ -98,7 +98,7 @@ test('badge requires independent vetting and current paid entitlement; invalidat
   const evidence = {id:business,action:'approved',reason:'Synthetic checks exercised only.',attestation:true,
     identityEvidence:'Synthetic registration check.',controlEvidence:'Synthetic public contact challenge.',
     licenseEvidence:'Synthetic credential check.'};
-  await assert.rejects(call('luis','decide_vetting',evidence),/Moderator access/);
+  await assert.rejects(call('luis','decide_vetting',evidence),/platform owner and the people they choose/);
   await call('rina','decide_vetting',evidence);
   assert.equal((await call('ava','business',{id:business})).verified,false);
   const checkout = await call('luis','checkout',{id:business});

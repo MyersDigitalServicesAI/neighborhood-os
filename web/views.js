@@ -133,8 +133,13 @@ export function mapPanel(picked,status,counts) {
     '<div class="inline-actions">'+(status==='home'?action('Open my neighborhood feed','feed','primary','home'):
       status==='near'?action('Open the Nearby feed','feed?in=nearby','primary','pin'):action('Open the Northeast Ohio feed','feed?in=neo','outline','home'))+'</div>';
 }
-export function feedAside(area,member) {
-  return '<section class="side-card neighborhood-card"><span class="feature-icon">'+icon('pin',22)+'</span><p class="eyebrow">YOUR LOCAL CIRCLE</p><h2>'+esc(area)+'</h2><p>Conversations, listings and alerts from people in your neighborhood.</p></section>'+
+export function feedAside(area,member,context = {}) {
+  const spots = context.foundingLeft ?? 0;
+  const founders = context.founding ?
+    '<section class="side-card founding-card"><span class="feature-icon pale">'+icon('star',21)+'</span><h2>You’re Founding Neighbor #'+esc(String(context.founding))+'.</h2><p>One of the first 50 verified neighbors in '+esc(area)+'. '+(spots?esc(String(spots))+' founding spots are still open. Invite a neighbor before they’re gone.':'All 50 founding spots are now taken.')+'</p></section>' :
+    spots ? '<section class="side-card founding-card"><span class="feature-icon pale">'+icon('star',21)+'</span><h2>'+esc(String(spots))+' founding spots left.</h2><p>The first 50 verified neighbors in '+esc(area)+' keep a Founding Neighbor badge for good.</p>'+
+      (member.verified_at?'':'<a class="text-link" href="#account">Get verified to claim one '+icon('arrow',15)+'</a>')+'</section>' : '';
+  return founders+'<section class="side-card neighborhood-card"><span class="feature-icon">'+icon('pin',22)+'</span><p class="eyebrow">YOUR LOCAL CIRCLE</p><h2>'+esc(area)+'</h2><p>Conversations, listings and alerts from people in your neighborhood.</p></section>'+
     (member.verified_at ? '' : '<section class="side-card"><span class="feature-icon pale">'+icon('lock',21)+'</span><h2>Get the verified tick.</h2><p>Confirm your address by postcard. It is deleted as soon as the card is mailed.</p><a class="text-link" href="#account">Verify my address '+icon('arrow',15)+'</a></section>')+
     '<section class="side-card"><span class="feature-icon pale">'+icon('shield',21)+'</span><h2>Trust starts here.</h2><p>Share firsthand experiences and disclose business affiliations. You can recommend or reply for free.</p><a class="text-link" href="#standards">Community standards '+icon('arrow',15)+'</a></section>';
 }
@@ -316,7 +321,7 @@ export function searchView(query,results) {
 export function profileView(profile,posts,me) {
   const self = profile.id===me;
   return back('Back to feed','feed')+'<section class="card panel profile-head">'+avatar(profile.name)+'<div><h1>'+esc(profile.name)+tick(profile.verified)+'</h1>'+
-    '<p class="quiet">'+esc(profile.area)+' · '+(profile.verified?'Verified neighbor · ':'')+'Joined '+esc(date(profile.joined))+'</p>'+(profile.bio?'<p class="post-text">'+esc(profile.bio)+'</p>':'')+'</div>'+
+    '<p class="quiet">'+esc(profile.area)+' · '+(profile.verified?'Verified neighbor · ':'')+'Joined '+esc(date(profile.joined))+'</p>'+founding(profile.founding,profile.foundingArea)+(profile.bio?'<p class="post-text">'+esc(profile.bio)+'</p>':'')+'</div>'+
     '<div class="inline-actions">'+(self?action('Edit my profile','account','outline','user'):action('Message '+profile.name,'compose/'+ref(profile.id),'primary','inbox')+
       form(profile.blocked?'unblock':'block',hidden('peer',profile.id)+button(profile.blocked?'Unblock':'Block','ghost')))+'</div></section>'+
     (profile.businesses.length?'<section class="detail-section"><h2>Businesses</h2><div class="cards">'+profile.businesses.map((b)=>
@@ -431,6 +436,7 @@ function residencyPanel(context) {
     '<h3>Or check in at a partner meeting</h3><p class="quiet">Community partners show a QR code at meetings. Scan it with your phone camera while signed in and you’re verified on the spot.</p>';
   return '<section class="card panel"><h2>Address verification</h2>'+inner+others+'</section>';
 }
+export const founding = (no,area) => no ? '<span class="chip founding" title="One of the first 50 verified neighbors in '+esc(area ?? 'this neighborhood')+'">'+icon('star',14)+'Founding Neighbor #'+esc(String(no))+'</span>' : '';
 const verifiedHow = {
   postcard:'. Your address was deleted when your postcard was mailed, and we keep only this date.',
   vouch:' by two neighbors who vouched for you. No address was ever collected.',
@@ -453,7 +459,7 @@ function vouchPanel(profile) {
 export function accountView(context) {
   const { member } = context;
   return heading('YOUR PROFILE','Account','Manage your profile, verification, local activity and business profiles.')+
-    '<section class="card panel account-panel">'+avatar(member.name)+'<div><h2>'+esc(member.name)+tick(member.verified_at)+'</h2><p class="quiet">'+esc(context.areas.find((a)=>a.id===member.area_id)?.name)+'</p>'+
+    '<section class="card panel account-panel">'+avatar(member.name)+'<div><h2>'+esc(member.name)+tick(member.verified_at)+'</h2><p class="quiet">'+esc(context.areas.find((a)=>a.id===member.area_id)?.name)+'</p>'+founding(context.founding,area(context))+
     (member.bio?'<p class="post-text">'+esc(member.bio)+'</p>':'')+'</div></section>'+
     '<section class="card panel"><h2>Profile</h2><details><summary>Edit name and introduction</summary>'+form('update_profile',
       field('Display name','name',{min:2,max:50,value:member.name})+
@@ -506,6 +512,11 @@ export function adminView(data,areas,created) {
       (f.paid ? '' : '<details><summary>Waive fee</summary>'+form('waive_fee',hidden('id',f.id)+
         field('Reason (kept in the audit log)','reason',{min:8,max:300,placeholder:'For example, founding business, first 10 in Old Brooklyn'})+button('Waive the $250 fee','outline'))+'</details>')+'</article>').join('')+'</div>' :
       '<p class="quiet">No businesses have applied for vetting yet.</p>')+'</section>'+
+    '<section class="card panel"><h2>Who can approve businesses</h2><p class="quiet">'+(data.owner?'You’re the platform owner, so you can approve any business, your own included. Add someone below only if you want them to approve businesses too. They must be a moderator or admin, and they can never approve a business they own.':'Only the platform owner and the people they choose can approve businesses.')+'</p>'+
+    (data.vetters?.length ? '<div class="cards">'+data.vetters.map((v)=>'<article class="card panel admin-row"><div><strong>'+esc(v.name)+'</strong><small>Can approve businesses'+(v.role?' · '+esc(roleLabel[v.role] ?? v.role):'')+'</small></div>'+
+      (data.owner?form('set_vetter',hidden('id',v.id)+hidden('remove','true')+button('Remove','ghost')):'')+'</article>').join('')+'</div>' : '<p class="quiet">Nobody else can approve businesses.</p>')+
+    (data.owner ? '<details><summary>Let someone approve businesses</summary>'+form('set_vetter',select('Team member','id',data.team.filter((m)=>m.role&&!m.me).map((m)=>[m.id,m.name+' · '+(roleLabel[m.role] ?? m.role)]),'','Choose a moderator or admin')+
+      button('Allow them to approve businesses','outline','plus'))+'</details>' : '')+'</section>'+
     '<section class="card panel"><h2>Check-in hosts</h2><p class="quiet">Hosts, such as CDC staff, show a QR code at meetings that verifies residents of their neighborhood on the spot. They can see who checked in and undo a mistake.</p>'+
     (data.hosts?.length ? '<div class="cards">'+data.hosts.map((h)=>'<article class="card panel admin-row"><div><strong>'+esc(h.name)+'</strong><small>Hosts '+esc(h.area)+'</small></div>'+
       form('set_host',hidden('id',h.id)+hidden('area',h.area_id)+hidden('remove','true')+button('Remove','ghost'))+'</article>').join('')+'</div>' : '<p class="quiet">No hosts yet.</p>')+
@@ -571,8 +582,8 @@ export function moderationView(queue) {
       select('Decision','action',[['keep','Keep content'],['remove','Remove content']],'','Choose a decision')+
       field('Decision reason','reason',{type:'textarea',min:12,max:700})+button('Save content decision','outline'))+'</details></article>').join(''):
       blank('flag','No community reports','Reports about posts and replies appear here.'))+'</section>'+
-    '<section class="detail-section"><h2>Business vetting <small>'+queue.vetting.length+'</small></h2>'+
-    (queue.vetting.length?queue.vetting.map(vettingCard).join(''):blank('shop','No vetting cases','New applications appear here.'))+'</section>'+
+    (queue.canVet === false ? '' : '<section class="detail-section"><h2>Business vetting <small>'+queue.vetting.length+'</small></h2>'+
+    (queue.vetting.length?queue.vetting.map(vettingCard).join(''):blank('shop','No vetting cases','New applications appear here.'))+'</section>')+
     '<section class="detail-section"><h2>Address postcards <small>'+queue.residency.length+'</small></h2>'+
     '<p class="quiet">Write the code on a postcard to the address shown and post it, then record it as mailed. Recording it erases the address and the code from the database, so finish the card first.</p>'+
     (queue.residency.length?queue.residency.map((v)=>'<article class="card panel"><div class="split"><h3>'+esc(v.name)+'</h3>'+chip(v.area,'pin','muted')+'</div>'+
@@ -583,7 +594,7 @@ export function moderationView(queue) {
 }
 function vettingCard(v) {
   const pending = v.status==='pending';
-  return '<article class="card panel"><div class="split"><h3>'+esc(v.business)+'</h3>'+chip(v.status,'','muted')+'</div>'+
+  return '<article class="card panel"><div class="split"><h3>'+esc(v.business)+(v.own?' (yours)':'')+'</h3>'+chip(v.status,'','muted')+'</div>'+
     '<dl class="evidence"><dt>Legal name</dt><dd>'+esc(v.legal_name)+'</dd><dt>Registry reference</dt><dd>'+esc(v.registration_ref)+'</dd>'+
     '<dt>Public contact reference</dt><dd>'+esc(v.contact_ref)+'</dd></dl>'+
     '<details><summary>'+ (pending?'Record vetting decision':'Revoke vetting')+'</summary>'+form('decide_vetting',hidden('id',v.id)+

@@ -345,6 +345,14 @@ test('a host shows a check-in QR code that verifies a resident, and two neighbor
   await page.getByRole('button',{name:'Check in and verify me'}).click();
   await expect(page.getByText('You’re checked in and verified. Welcome!')).toBeVisible();
   await expect(page.getByText('at an in-person check-in',{exact:false})).toBeVisible();
+  await expect(page.locator('.account-panel .chip.founding')).toContainText(/Founding Neighbor #\d+/);
+  await page.goto('/#feed');
+  await expect(page.locator('.founding-card')).toContainText('You’re Founding Neighbor #');
+  await page.goto('/#admin');
+  await expect(page.getByRole('heading',{name:'Who can approve businesses'})).toBeVisible();
+  await expect(page.getByText('You’re the platform owner',{exact:false})).toBeVisible();
+  await page.screenshot({path:'test-results/admin-owner-mobile.png',fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await page.goBack();
   await page.goto('/#host');
   await page.getByRole('link',{name:/Old Brooklyn CDC monthly meeting/}).click();

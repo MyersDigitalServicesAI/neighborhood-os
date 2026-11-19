@@ -8,7 +8,7 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'delete_post','delete_reply','react','rsvp','vote','upload_image','notifications','read_notifications','search','profile','update_profile',
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
-  'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee']);
+  'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter']);
 // Operations that can queue an email; the queue is drained right after them.
 const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
