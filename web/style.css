@@ -121,3 +121,4 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .qr{width:min(100%,360px);aspect-ratio:1;margin:8px auto;background:#fff;border-radius:12px;padding:8px}.qr svg{width:100%;height:100%;display:block}
 .checkin-code{text-align:center;color:var(--quiet);font-size:.9rem;word-break:break-word}.checkin-card h1{margin:10px 0 4px}
 .panel h3{font-size:1rem;margin:16px 0 4px}
+.chip.founding{background:#f6ead0;color:#6b4a12;border-color:#ecd7a8;margin-top:6px}.founding-card{border-color:#ecd7a8;background:#fffaf0}
