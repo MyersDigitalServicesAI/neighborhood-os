@@ -376,3 +376,32 @@ test('a host shows a check-in QR code that verifies a resident, and two neighbor
   await expect(page.getByText('Verified neighbor ·',{exact:false})).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('an admin pins a post and neighbors see it at the top of their feed',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await login(page,'rina');
+  await page.locator('#feed-results').getByRole('link',{name:'What are you growing this season?'}).click();
+  await page.getByText('Pin to the top of Old Brooklyn').click();
+  await page.getByLabel('How long').selectOption('7');
+  await page.getByRole('button',{name:'Pin post'}).click();
+  await expect(page.getByText('Post pinned to the top of the feed.')).toBeVisible();
+  await expect(page.getByText(/Pinned to the top of Old Brooklyn until/)).toBeVisible();
+  await logout(page);
+
+  await login(page,'ava');
+  const pinned = page.locator('section.pinned');
+  await expect(pinned.getByRole('link',{name:'What are you growing this season?'})).toBeVisible();
+  await expect(page.locator('#feed-results').getByRole('link',{name:'What are you growing this season?'})).toHaveCount(0);
+  await page.screenshot({path:'test-results/pinned-mobile.png',fullPage:true});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.locator('#feed-results .feed-card').first().locator('h2 a').click();
+  await expect(page.getByText('Pin to the top of')).toHaveCount(0);
+  await logout(page);
+
+  await login(page,'rina');
+  await page.goto('/#admin');
+  await page.locator('.admin-row',{hasText:'What are you growing this season?'}).getByRole('button',{name:'Unpin'}).click();
+  await expect(page.getByText('Post unpinned.')).toBeVisible();
+  await page.goto('/#feed');
+  await expect(page.locator('section.pinned')).toHaveCount(0);
+});

@@ -207,8 +207,9 @@ async function render() {
       case '': {
         page = key === 'requests' ? 'requests' : 'feed';
         const kind = page === 'requests' ? 'request' : feedKinds.has(arg) ? arg : '';
-        const [items,alerts] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope})]);
-        content = view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby,member.name);
+        const [items,alerts,pinned] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope}),
+          kind ? [] : rpc('pinned',{scope})]);
+        content = view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby,member.name,pinned);
         aside = view.feedAside(area,context.member,context);
         break;
       }
@@ -246,7 +247,7 @@ async function render() {
       case 'post': {
         const [post,businesses] = await Promise.all([rpc('post',{id}),rpc('my_businesses')]);
         page = post.kind==='request' ? 'requests' : 'feed';
-        content = view.postView(post,member.id,businesses);
+        content = view.postView(post,member.id,businesses,context.canPin);
         break;
       }
       case 'directory': {
@@ -361,7 +362,7 @@ const messages = {
   submit_review:'Review sent for human moderation.', report_review:'Report sent to staff.', appeal:'Appeal submitted.',
   decide_review:'Review decision recorded.', decide_appeal:'Appeal decision recorded.', decide_vetting:'Vetting decision recorded.',
   update_business:'Business profile saved.', block:'Messages blocked.', unblock:'Messages unblocked.',
-  set_vetter:'Vetting access updated.', waive_fee:'Fee waived. The business still needs a vetting approval from other staff.', unvouch:'Vouch withdrawn.', set_host:'Hosts updated.', end_checkin:'Check-in ended. The code no longer works.', undo_checkin:'Verification undone.'
+  set_vetter:'Vetting access updated.', waive_fee:'Fee waived. The business still needs a vetting approval from other staff.', unvouch:'Vouch withdrawn.', set_host:'Hosts updated.', pin_post:'Post pinned to the top of the feed.', unpin_post:'Post unpinned.', end_checkin:'Check-in ended. The code no longer works.', undo_checkin:'Verification undone.'
 };
 const pages = {
   'feed-more': {op:'feed',target:'feed-results',render:view.postCard,size:25},

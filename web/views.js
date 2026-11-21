@@ -160,7 +160,9 @@ function composePrompt(name,area) {
   return '<section class="card compose-prompt"><div class="compose-row">'+avatar(name)+'<a class="compose-input" href="#new/discussion">What’s happening in '+esc(area)+'?</a></div>'+
     '<nav class="compose-quick" aria-label="Start a post">'+quick.map(([kind,label,image])=>'<a href="#new/'+kind+'">'+icon(image,17)+esc(label)+'</a>').join('')+'</nav></section>';
 }
-export function feedView(posts, area, selected, filter, alerts = [], scope = '', nearby = [], name = '') {
+export function feedView(posts, area, selected, filter, alerts = [], scope = '', nearby = [], name = '', pinned = []) {
+  const pinnedIds = new Set(pinned.map((p)=>p.id));
+  const shown = posts.filter((p)=>!pinnedIds.has(p.id));
   const requests = selected === 'requests';
   const current = feedTabs.find(([,kind])=>kind===filter)?.[0] ?? 'feed';
   const tabs = '<nav class="tabs" aria-label="Filter feed">'+feedTabs.map(([route,kind,label])=>'<a href="#'+route+scopeQuery(scope)+'" '+(filter===kind?'aria-current="page"':'')+'>'+label+'</a>').join('')+'</nav>';
@@ -170,7 +172,8 @@ export function feedView(posts, area, selected, filter, alerts = [], scope = '',
     '<header class="feed-top"><h1>Your neighborhood</h1><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
     scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
-    (posts.length ? '<div class="cards" id="feed-results">'+posts.map(postCard).join('')+'</div>' : blank(requests?'brief':'chat',requests?'No requests yet':filter?'Nothing here yet':'Say hello to your neighbors',requests?'Post the first service request for your neighborhood.':'Start a discussion, share an event, or ask for a recommendation.',
+    (pinned.length ? '<section class="pinned" aria-label="Pinned posts"><h2 class="eyebrow">'+icon('pin',14)+'PINNED</h2><div class="cards">'+pinned.map(postCard).join('')+'</div></section>' : '')+
+    (shown.length || pinned.length ? '<div class="cards" id="feed-results">'+shown.map(postCard).join('')+'</div>' : blank(requests?'brief':'chat',requests?'No requests yet':filter?'Nothing here yet':'Say hello to your neighbors',requests?'Post the first service request for your neighborhood.':'Start a discussion, share an event, or ask for a recommendation.',
       action(requests?'Create a request':'Create a post',create,'outline','plus')))+
     (posts.length === 25 ? pager('feed-more',posts.at(-1),hidden('kind',filter)+hidden('scope',scope==='neo'?'region':scope)):'');
 }
@@ -197,7 +200,7 @@ export function postCard(post) {
   const [label,image] = typeInfo[post.kind] ?? typeInfo.discussion;
   const link = 'post/'+ref(post.id);
   return '<article class="card feed-card kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+
-    (post.business_verified?verified():'')+(post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+chip(label,image,post.kind)+'</div>'+
+    (post.pinned?chip('Pinned','pin','pinned'):'')+(post.business_verified?verified():'')+(post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+chip(label,image,post.kind)+'</div>'+
     '<h2><a href="#'+link+'">'+esc(post.title)+'</a></h2>'+facts(post)+'<p class="post-text clamp">'+esc(post.body)+'</p>'+
     (post.image_id?'<a class="bleed" href="#'+link+'">'+photo(post.image_id,'Photo for '+post.title)+'</a>':'')+
     '<div class="post-actions">'+likeButton(post)+'<a class="act" href="#'+link+'">'+icon('chat',17)+'<span>'+esc(post.replies)+' '+(post.replies===1?'reply':'replies')+'</span></a>'+
@@ -264,14 +267,14 @@ function pollBlock(post) {
         '<button class="poll-choice" type="submit" aria-pressed="'+(post.vote===o.id)+'">'+row+'</button><p class="form-error" role="alert" hidden></p></form>')+'</div>';
   }).join('')+'<p class="quiet">'+total+' '+(total===1?'vote':'votes')+(post.closed?' · Poll closed':post.vote?' · You can change your vote':'')+'</p></section>';
 }
-export function postView(post,me,businesses) {
+export function postView(post,me,businesses,canPin = false) {
   const [label,image] = typeInfo[post.kind] ?? typeInfo.discussion;
   const mine = post.author_id===me;
   const open = !(post.closed && ['request','poll'].includes(post.kind));
   const home = post.kind==='request'?'requests':post.kind==='sale'?'market':'feed';
   const top = post.replies.filter((r)=>!r.parent_id);
   return back('Back to '+(home==='market'?'marketplace':home),home)+
-    '<article class="card panel detail kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+(post.business_verified?verified():'')+chip(label,image,post.kind)+'</div>'+
+    '<article class="card panel detail kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+(post.pinned?chip('Pinned','pin','pinned'):'')+(post.business_verified?verified():'')+chip(label,image,post.kind)+'</div>'+
     '<h1>'+esc(post.title)+'</h1>'+facts(post)+'<p class="post-text">'+esc(post.body)+'</p>'+photo(post.image_id,'Photo for '+post.title,'photo large')+
     '<p class="fact reach">'+icon('pin',16)+esc('Posted in '+post.area+' · shared with '+(post.local?reachLabel[post.reach]:post.reach==='region'?'all of Northeast Ohio':'nearby neighborhoods'))+'</p>'+
     (post.kind==='poll'?pollBlock(post):'')+
@@ -280,6 +283,7 @@ export function postView(post,me,businesses) {
     (!mine ? action(post.business?'Message business':'Message '+post.author,'compose/'+ref(post.author_id),'outline','inbox') :
       closeAction[post.kind]&&!post.closed ? form('close_post',hidden('id',post.id)+button(closeAction[post.kind],'outline')) : '')+
     (post.closed?chip(closedLabel[post.kind] ?? 'Closed','','muted'):'')+'</div>'+
+    (canPin?pinControls(post):'')+
     (mine?'<details><summary>'+icon('trash',14)+' Delete post</summary>'+form('delete_post',hidden('id',post.id)+button('Delete this post','outline'))+'</details>':reportContent(post.id,'post'))+'</article>'+
     '<section class="detail-section"><h2>Replies</h2><div class="cards">'+(top.length ? top.map((r)=>replyCard(r,post,me,open)+
       post.replies.filter((c)=>c.parent_id===r.id).map((c)=>replyCard(c,post,me,open)).join('')).join('') : '<p class="quiet">No replies yet.</p>')+'</div></section>'+
@@ -287,6 +291,13 @@ export function postView(post,me,businesses) {
       field('Your reply','body',{type:'textarea',min:2,max:1600})+
       (businesses.length?select('Reply as','business',[['','Personal account'],...businesses.map((b)=>[b.id,b.name])]):'')+
       check('I have a business affiliation relevant to this reply.','affiliated')+button('Post reply','primary','arrow'))+'</section>');
+}
+function pinControls(post) {
+  if (post.pinned) return '<div class="pin-controls"><p class="quiet">'+icon('pin',14)+' Pinned to the top of '+esc(post.area)+(post.pinned_until?' until '+esc(date(post.pinned_until)):'')+'.</p>'+
+    form('unpin_post',hidden('id',post.id)+button('Unpin','outline'))+'</div>';
+  return '<details class="pin-controls"><summary>'+icon('pin',14)+' Pin to the top of '+esc(post.area)+'</summary>'+
+    form('pin_post',hidden('id',post.id)+select('How long','days',[['','Until I unpin it'],['7','1 week'],['30','30 days'],['90','90 days']])+
+      '<p class="quiet">Up to 3 posts can be pinned in each neighborhood. Everyone who can see this post sees it first.</p>'+button('Pin post','primary'))+'</details>';
 }
 const noticeText = {
   reply:(n)=>[(n.actor ?? 'A neighbor')+' replied','post/'+ref(n.post_id),'chat'],
@@ -506,6 +517,10 @@ export function adminView(data,areas,created) {
       (live(i) ? '<div class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(inviteLink(i.code))+'">Copy link</button>'+
         form('revoke_invite',hidden('id',i.id)+button('Revoke','ghost'))+'</div>' : chip(i.revoked_at?'Revoked':i.uses>=i.max_uses?'Used up':'Expired','','muted'))+'</article>').join('')+'</div>' :
       '<p class="quiet">No invite links yet.</p>')+'</section>'+
+    '<section class="detail-section"><h2>Pinned posts <small>'+(data.pins?.length ?? 0)+'</small></h2><p class="quiet">Pin a post from its page. Up to 3 per neighborhood.</p>'+
+    (data.pins?.length ? '<div class="cards">'+data.pins.map((p)=>'<article class="card panel admin-row"><div><strong><a href="#post/'+ref(p.id)+'">'+esc(p.title)+'</a></strong><small>'+
+      esc(p.area+' · pinned '+date(p.pinned_at)+(p.pinned_until?' · until '+date(p.pinned_until):' · until unpinned'))+'</small></div>'+
+      form('unpin_post',hidden('id',p.id)+button('Unpin','ghost'))+'</article>').join('')+'</div>' : '<p class="quiet">Nothing is pinned.</p>')+'</section>'+
     '<section class="detail-section"><h2>Vetting fees <small>'+(data.fees?.length ?? 0)+'</small></h2><p class="quiet">Waive the $250 fee for founding businesses or partners. A waiver replaces the payment only: staff who don’t own the business still have to approve it. The reason is kept in the audit log.</p>'+
     (data.fees?.length ? '<div class="cards">'+data.fees.map((f)=>'<article class="card panel admin-row"><div><strong>'+esc(f.name)+(f.mine?' (yours)':'')+'</strong><small>'+
       esc(f.owner+' · vetting '+f.status+' · '+(f.waived?'fee waived':f.paid?'fee paid':'fee not paid'))+'</small></div>'+

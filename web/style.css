@@ -122,3 +122,7 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .checkin-code{text-align:center;color:var(--quiet);font-size:.9rem;word-break:break-word}.checkin-card h1{margin:10px 0 4px}
 .panel h3{font-size:1rem;margin:16px 0 4px}
 .chip.founding{background:#f6ead0;color:#6b4a12;border-color:#ecd7a8;margin-top:6px}.founding-card{border-color:#ecd7a8;background:#fffaf0}
+.chip.pinned{background:#e6efe9;color:#1f5a40}.pinned{margin:0 0 18px}.pinned .eyebrow{display:flex;align-items:center;gap:6px;margin:0 0 10px}
+.pinned .feed-card{box-shadow:inset 4px 0 0 #2f7a55}.pin-controls{margin-top:14px}.pin-controls form{margin-top:10px}
+.pinned,.pinned .cards>*{min-width:0}.post-meta:has(.chip.pinned){flex-wrap:wrap;row-gap:6px}
+.app-main{grid-template-columns:minmax(0,1fr)}.scope{grid-template-columns:minmax(0,1fr)}
