@@ -405,3 +405,39 @@ test('an admin pins a post and neighbors see it at the top of their feed',async(
   await page.goto('/#feed');
   await expect(page.locator('section.pinned')).toHaveCount(0);
 });
+
+test('neighbors open their neighborhood guide from the feed and admins correct a listing',async({page})=>{
+  const errors = [];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  await page.setViewportSize({width:390,height:844});
+  await login(page,'ava');
+  await page.locator('.feed-top').getByRole('link',{name:'Guide'}).click();
+  await expect(page.getByRole('heading',{name:'Old Brooklyn',level:1})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Ward 4 · Council Member Kris Harsh'})).toBeVisible();
+  await expect(page.locator('#guide-places')).toContainText('South Brooklyn branch');
+  await expect(page.locator('#guide-help .guide-item').first()).toBeVisible();
+  await expect(page.getByText('Add a listing to')).toHaveCount(0);
+  await page.getByRole('button',{name:'Help & services'}).click();
+  await page.screenshot({path:'test-results/guide-mobile.png',fullPage:false});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.getByLabel('See another neighborhood').selectOption('tremont');
+  await page.getByRole('button',{name:'Open guide'}).click();
+  await expect(page.getByRole('heading',{name:'Tremont',level:1})).toBeVisible();
+  await logout(page);
+
+  await login(page,'rina');
+  await page.goto('/#guide');
+  await page.getByText('Add a listing to Old Brooklyn').click();
+  const add = page.locator('.guide-add');
+  await add.getByLabel('Section').selectOption('groups');
+  await add.getByLabel('Name').fill('Pearl Road Block Club');
+  await add.getByLabel('Details').fill('Meets the first Tuesday of the month.');
+  await add.getByRole('button',{name:'Add to guide'}).click();
+  await expect(page.getByText('Guide updated.')).toBeVisible();
+  const club = page.locator('.guide-item',{hasText:'Pearl Road Block Club'});
+  await club.getByText('Edit').click();
+  await club.getByRole('button',{name:'Remove from guide'}).click();
+  await expect(page.getByText('Removed from the guide.')).toBeVisible();
+  await expect(page.locator('.guide-item',{hasText:'Pearl Road Block Club'})).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

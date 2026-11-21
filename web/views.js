@@ -91,7 +91,7 @@ export function joinView(available,canJoin,invite = '',checkin = '') {
 }
 
 const navigation = [
-  ['feed','Neighborhood','home'],['map','Map','pin'],['market','Marketplace','tag'],['requests','Service requests','brief'],['directory','Businesses','shop'],
+  ['feed','Neighborhood','home'],['guide','Neighborhood guide','book'],['map','Map','pin'],['market','Marketplace','tag'],['requests','Service requests','brief'],['directory','Businesses','shop'],
   ['inbox','Messages','inbox'],['notifications','Notifications','bell'],['account','Account','user']
 ];
 const mobileNavigation = [['feed','Feed','home'],['market','Market','tag'],['directory','Businesses','shop'],['inbox','Messages','inbox'],['notifications','Alerts','bell']];
@@ -169,7 +169,7 @@ export function feedView(posts, area, selected, filter, alerts = [], scope = '',
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
     heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-top"><h1>Your neighborhood</h1><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
+    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
     scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (pinned.length ? '<section class="pinned" aria-label="Pinned posts"><h2 class="eyebrow">'+icon('pin',14)+'PINNED</h2><div class="cards">'+pinned.map(postCard).join('')+'</div></section>' : '')+
@@ -657,4 +657,44 @@ export function hostSessionView(s) {
       '<article class="card panel admin-row"><div><strong>'+esc(p.name)+'</strong><small>'+esc(p.area+' · '+(p.undone_at?'verification undone':p.verified?'verified here':'already verified'))+'</small></div>'+
       (p.verified && !p.undone_at ? form('undo_checkin',hidden('id',s.id)+hidden('member',p.id)+button('Undo','ghost')) : '')+'</article>').join('')+'</div>' :
       '<p class="quiet">Nobody yet. This list updates on its own.</p>')+'</section>';
+}
+
+const guideSections = [
+  ['civic','Civic life','Your council member, police district and city services.','shield'],
+  ['places','Places','Libraries, recreation centers and parks.','leaf'],
+  ['help','Help & services','Food pantries, hot meals and help lines. Call ahead to confirm hours.','heart'],
+  ['groups','Groups','The organizations working on this neighborhood.','user']
+];
+const mapsLink = (address) => 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(address);
+function guideItem(item,canEdit) {
+  return '<article class="card guide-item kind-'+esc(item.kind)+'"><h3>'+esc(item.name)+'</h3>'+(item.detail?'<p>'+esc(item.detail)+'</p>':'')+
+    '<div class="guide-actions">'+(item.address?'<a class="act" href="'+mapsLink(item.address)+'" target="_blank" rel="noopener">'+icon('pin',16)+'<span>'+esc(item.address)+'</span></a>':'')+
+    (item.phone?'<a class="act" href="tel:'+esc(item.phone.replace(/[^0-9+]/g,''))+'">'+icon('phone',16)+'<span>'+esc(item.phone)+'</span></a>':'')+
+    (url(item.url)?'<a class="act" href="'+url(item.url)+'" target="_blank" rel="noopener">'+icon('external',16)+'<span>Website</span></a>':'')+'</div>'+
+    (item.source?'<p class="guide-source">Source: '+esc(item.source)+'</p>':'')+
+    (canEdit?'<details class="guide-edit"><summary>Edit</summary>'+form('save_guide_item',hidden('id',item.id)+guideFields(item)+button('Save changes','outline'))+
+      form('hide_guide_item',hidden('id',item.id)+button('Remove from guide','ghost'))+'</details>':'')+'</article>';
+}
+function guideFields(item = {}) {
+  return field('Name','name',{max:160,value:item.name ?? ''})+field('Details','detail',{type:'textarea',required:false,max:700,value:item.detail ?? ''})+
+    field('Address','address',{required:false,max:160,value:item.address ?? ''})+field('Phone','phone',{type:'tel',required:false,max:20,value:item.phone ?? ''})+
+    field('Website (https://…)','url',{type:'url',required:false,max:300,value:item.url ?? ''})+field('Source','source',{required:false,max:160,value:item.source ?? ''});
+}
+export function guideView(guide,areas,home,canEdit = false) {
+  const {area,items} = guide;
+  const cleveland = areas.filter((a)=>a.region===area.region);
+  const picker = form('guide_area',select('See another neighborhood','area',cleveland.map((a)=>[a.id,a.name+(a.id===home?' (yours)':'')]),area.id)+button('Open guide','outline'));
+  const sections = guideSections.map(([key,title,note,image])=>{
+    const list = items.filter((i)=>i.section===key);
+    return list.length ? '<section class="detail-section guide-section" id="guide-'+key+'"><h2>'+icon(image,20)+esc(title)+' <small>'+list.length+'</small></h2><p class="quiet">'+esc(note)+'</p>'+
+      '<div class="cards">'+list.map((i)=>guideItem(i,canEdit)).join('')+'</div></section>' : '';
+  }).join('');
+  const jump = '<nav class="tabs guide-jump" aria-label="Guide sections">'+guideSections.filter(([key])=>items.some((i)=>i.section===key))
+    .map(([key,title])=>'<button type="button" data-jump="guide-'+key+'">'+esc(title)+'</button>').join('')+'</nav>';
+  return heading('NEIGHBORHOOD GUIDE',area.name,area.id===home?'Everything that makes your neighborhood work, in one place.':'The guide for '+area.name+'.')+
+    '<section class="card panel guide-picker">'+picker+'</section>'+
+    (items.length ? jump+sections+'<p class="small guide-note">Built from official City of Cleveland, Cleveland City Council, Cleveland Public Library and Greater Cleveland Food Bank data. Spot something out of date? Tell us from the Account page.</p>' :
+      blank('book','This guide is coming soon',area.region==='Cleveland'?'We are still putting this neighborhood together.':'Guides for the suburbs are next on our list.'))+
+    (canEdit?'<details class="card panel guide-add"><summary>'+icon('plus',16)+' Add a listing to '+esc(area.name)+'</summary>'+
+      form('save_guide_item',hidden('area',area.id)+select('Section','section',guideSections.map(([key,title])=>[key,title]))+guideFields()+button('Add to guide','primary'))+'</details>':'');
 }
