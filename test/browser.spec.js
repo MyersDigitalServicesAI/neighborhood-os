@@ -10,7 +10,7 @@ async function login(page, account) {
 async function logout(page) {
   await page.goto('/#account');
   await page.getByRole('button',{name:'Sign out'}).click();
-  await expect(page.getByRole('heading',{name:'Where neighborhoods stay connected.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
 }
 
 test('mobile landing and resident request-to-reply-to-message flow',async({page})=>{
@@ -18,7 +18,7 @@ test('mobile landing and resident request-to-reply-to-message flow',async({page}
   const errors = [];
   page.on('pageerror',(e)=>errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Where neighborhoods stay connected.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({path:'test-results/landing-mobile.png',fullPage:true});
   await login(page,'ava');
@@ -57,7 +57,7 @@ test('desktop review submission, removal, independent appeal, and business vetti
   const errors = [];
   page.on('pageerror',(e)=>errors.push(e.message));
   await page.goto('/');
-  await expect(page.getByRole('heading',{name:'Where neighborhoods stay connected.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
   await page.screenshot({path:'test-results/landing-desktop.png',fullPage:true});
   await login(page,'jamal');
   await page.screenshot({path:'test-results/feed-desktop.png',fullPage:true});
@@ -314,7 +314,7 @@ test('an admin creates an invite link and admits a waiting account; a member del
   await page.getByText('Delete my account',{exact:true}).click();
   await page.getByLabel('Type DELETE to confirm').fill('DELETE');
   await page.getByRole('button',{name:'Delete my account permanently'}).click();
-  await expect(page.getByRole('heading',{name:'Where neighborhoods stay connected.'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
   await page.goto('/#login');
   await page.getByLabel('Email address').fill('taylor@neighborhood.test');
   await page.getByLabel('Password',{exact:true}).fill('local-fixture-pass');
