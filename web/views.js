@@ -5,7 +5,7 @@ export function landing(config) {
   return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="desktop-link" href="#standards">Community standards</a>'+
     action('Sign in','login','outline')+'</nav></header><main id="content" class="wrap landing">'+
     '<section class="hero"><div class="hero-copy">'+chip('Northeast Ohio pilot','pin','location')+
-    '<h1>Where neighborhoods <em>stay connected.</em></h1>'+
+    '<h1>Where neighborhoods <em>become neighbors.</em></h1>'+
     '<p>Meet the people around you, find a local recommendation, and keep up with what’s happening in your neighborhood.</p>'+
     '<div class="hero-actions">'+action(config.signups ? 'Join your neighborhood' : 'Pilot sign in',config.signups ? 'signup' : 'login','primary','arrow')+
     action('How it works','standards','ghost')+'</div><small>Free for neighbors and local businesses.</small></div>'+

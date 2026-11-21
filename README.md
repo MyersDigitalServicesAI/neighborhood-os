@@ -1,6 +1,6 @@
 # Nabora
 
-Where neighborhoods stay connected.
+Where neighborhoods become neighbors.
 
 A mobile-first Northeast Ohio neighborhood app. The initial pilot areas are Old Brooklyn, Parma, Brook Park, and Lakewood. People choose and attest to their neighborhood. Address verification is optional and deletes the address once a postcard is mailed.
 

@@ -43,7 +43,7 @@ export const areas = ['All 34 Cleveland neighborhoods','57 Cuyahoga County subur
 export const categories = ['Home services','Food & drink','Retail','Health & wellness','Professional services','Other'];
 export const typeInfo = { discussion:['Discussion','chat'], request:['Service request','brief'], event:['Local event','calendar'],
   alert:['Safety alert','alert'], lost:['Lost & found','paw'], sale:['For sale & free','tag'], poll:['Poll','poll'], offer:['Business update','megaphone'] };
-export const mark = '<img src="/mark.svg" alt="" width="37" height="37">';
+export const mark = '<img src="/logo-mark.png" alt="" width="40" height="37">';
 export const brand = '<span class="brand">'+mark+'<span>Nabora</span></span>';
 export const chip = (text, name, variant = '') => '<span class="chip '+variant+'">'+(name ? icon(name,15) : '')+esc(text)+'</span>';
 export const action = (text, route, variant = 'primary', image = '') => '<a class="button '+variant+'" href="#'+esc(route)+'">'+(image ? icon(image,17) : '')+esc(text)+'</a>';
