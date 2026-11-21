@@ -122,3 +122,15 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .checkin-code{text-align:center;color:var(--quiet);font-size:.9rem;word-break:break-word}.checkin-card h1{margin:10px 0 4px}
 .panel h3{font-size:1rem;margin:16px 0 4px}
 .chip.founding{background:#f6ead0;color:#6b4a12;border-color:#ecd7a8;margin-top:6px}.founding-card{border-color:#ecd7a8;background:#fffaf0}
+.chip.pinned{background:#e6efe9;color:#1f5a40}.pinned{margin:0 0 18px}.pinned .eyebrow{display:flex;align-items:center;gap:6px;margin:0 0 10px}
+.pinned .feed-card{box-shadow:inset 4px 0 0 #2f7a55}.pin-controls{margin-top:14px}.pin-controls form{margin-top:10px}
+.pinned,.pinned .cards>*{min-width:0}.post-meta:has(.chip.pinned){flex-wrap:wrap;row-gap:6px}
+.app-main{grid-template-columns:minmax(0,1fr)}.scope{grid-template-columns:minmax(0,1fr)}
+.guide-link{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:10px;background:#e4ebdb;color:#254d39;font-weight:750;font-size:.86rem}
+.guide-picker form{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.guide-picker .field{flex:1 1 220px;margin:0}
+.guide-jump button{padding:8px 11px;border:0;border-radius:9px;background:#eef2e6;color:#254d39;font:inherit;font-weight:750;font-size:.86rem;white-space:nowrap;flex:none;cursor:pointer}
+.guide-section{scroll-margin-top:80px}.guide-section h2{display:flex;align-items:center;gap:8px}.guide-section h2 small{color:var(--quiet);font-weight:600}
+.guide-item{padding:14px 16px;min-width:0}.guide-item h3{margin:0 0 5px;font-size:1.02rem}.guide-item p{margin:0 0 6px;color:var(--quiet);font-size:.9rem;overflow-wrap:anywhere}
+.guide-actions{display:flex;flex-wrap:wrap;gap:2px 8px;margin-left:-8px}.guide-actions .act{white-space:normal;text-align:left;color:#254d39}
+.guide-source{font-size:.75rem!important;opacity:.85}.guide-edit,.guide-add{margin-top:8px}.guide-edit summary,.guide-add summary{cursor:pointer;font-weight:750;color:#254d39}
+.guide-note{margin-top:10px}
