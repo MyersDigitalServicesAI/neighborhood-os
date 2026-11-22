@@ -44,7 +44,7 @@ export function eventsPage(data, origin) {
     '<meta property="og:description" content="'+esc(description)+'"><meta property="og:url" content="'+esc(canonical)+'"><meta property="og:image" content="'+esc(origin)+'/og.jpg">'+
     '<meta name="twitter:card" content="summary_large_image">'+
     '<script type="application/ld+json">'+JSON.stringify(structured).replace(/</g,'\\u003c')+'</script></head><body>'+
-    '<header class="top"><a class="brand" href="/"><img src="/logo-mark.png" alt="" width="34" height="31">Nabora</a><nav><a href="/#login">Sign in</a><a class="join" href="/#signup">Join free</a></nav></header>'+
+    '<header class="top"><a class="brand" href="/"><img src="/logo-mark.png" alt="" width="34" height="31">Nabora</a><nav><a href="/food">Local food</a><a href="/#login">Sign in</a><a class="join" href="/#signup">Join free</a></nav></header>'+
     '<main><p class="eyebrow">WHAT’S ON ACROSS CLEVELAND</p><h1>'+esc(heading)+'</h1>'+
     '<p class="lede">Library programs, ward meetings, holiday markets and neighbor events from every Cleveland neighborhood. Free to browse, updated every week.</p>'+
     '<nav class="spans" aria-label="When">'+spans.map(([key,label])=>'<a href="'+esc(query(key,area))+'"'+((when==='all'?'':when)===key?' aria-current="page"':'')+'>'+esc(label)+'</a>').join('')+'</nav>'+
@@ -52,5 +52,5 @@ export function eventsPage(data, origin) {
     (days.length ? days.map((d)=>'<section><h2>'+esc(d.label)+'</h2>'+d.items.map(card).join('')+'</section>').join('')
       : '<p class="empty">Nothing is posted for this yet. Try “All upcoming”, or join Nabora and post the first one.</p>')+
     '<aside class="cta"><h2>Where neighborhoods become neighbors.</h2><p>Join Nabora to RSVP, post your own events, and see what your neighbors recommend. It’s free for neighbors.</p><a class="join" href="/#signup">Find your neighborhood</a></aside>'+
-    '</main><footer><a href="/">Nabora</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
+    '</main><footer><a href="/">Nabora</a> · <a href="/food">Local food</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
 }

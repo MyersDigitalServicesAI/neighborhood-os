@@ -27,6 +27,13 @@ export function counts(db) {
   });
 }
 
+export function publicFood(db,data = {}) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.neighborhood_public_food($1) as value',[JSON.stringify(data)])).rows[0].value;
+  });
+}
+
 export function publicEvents(db,data = {}) {
   return db.transaction(async (tx) => {
     await tx.exec('set local role anon');
@@ -73,6 +80,7 @@ export function fixtureAdapter(db, accounts) {
     },
     counts:() => counts(db),
     publicEvents:(d) => publicEvents(db,d),
+    publicFood:(d) => publicFood(db,d),
     mail:(d) => mail(db,d),
     importEvents:(d) => importEvents(db,d),
     async rpc(token, op, data) {

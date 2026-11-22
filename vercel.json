@@ -64,6 +64,10 @@
     {
       "source": "/events",
       "destination": "/api/core?action=events-page"
+    },
+    {
+      "source": "/food",
+      "destination": "/api/core?action=food-page"
     }
   ]
 }

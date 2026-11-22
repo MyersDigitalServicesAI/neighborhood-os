@@ -3,6 +3,7 @@ import { Problem, supabaseAdapter } from './supabase.js';
 import { deliver, mailerAdapter } from './mail.js';
 import { gatherEvents } from './events.js';
 import { eventsPage } from './events-page.js';
+import { foodPage, foodKinds } from './food-page.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -10,7 +11,8 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'delete_post','delete_reply','react','rsvp','vote','upload_image','notifications','read_notifications','search','profile','update_profile',
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
-  'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events']);
+  'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events',
+  'claim_food','save_food','decide_food_claim']);
 // Operations that can queue an email; the queue is drained right after them.
 const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -95,6 +97,20 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         }
         res.setHeader('Content-Type','text/html; charset=utf-8');
         return res.end(eventsPage(data,(env.APP_ORIGIN || base).replace(/\/$/,'')));
+      }
+      if (req.method === 'GET' && (action === 'public-food' || action === 'food-page')) {
+        // Public: local food listings for anyone. Cached briefly at the edge.
+        const kind = foodKinds.some(([k])=>k===url.searchParams.get('kind')) ? url.searchParams.get('kind') : '';
+        const place = /^[a-z0-9-]{2,40}$/.test(url.searchParams.get('area') ?? '') ? url.searchParams.get('area') : '';
+        const data = await database.publicFood({ kind,area:place,snap:url.searchParams.get('snap') === '1' });
+        res.statusCode = 200;
+        res.setHeader('Cache-Control','public, max-age=300, s-maxage=600');
+        if (action === 'public-food') {
+          res.setHeader('Content-Type','application/json; charset=utf-8');
+          return res.end(JSON.stringify(data));
+        }
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        return res.end(foodPage(data,(env.APP_ORIGIN || base).replace(/\/$/,'')));
       }
       if (req.method === 'GET' && action === 'deliver') {
         // Daily job: send anything still queued and delete stale address-verification requests.
