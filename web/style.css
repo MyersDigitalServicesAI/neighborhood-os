@@ -149,3 +149,4 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .event-main{display:grid;gap:4px;min-width:0}.event-main strong{font-size:.98rem;overflow-wrap:anywhere}.event-main small{display:flex;gap:4px;align-items:center;color:var(--quiet)}
 .event-tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.event-tags .chip{font-size:.72rem;padding:3px 8px}
 @media (max-width:520px){.event-row{grid-template-columns:70px minmax(0,1fr);gap:10px}.event-row>svg{display:none}}
+.landing-events{font-weight:750;color:#254d39;padding:8px 10px}.public-note{margin:-4px 0 4px;display:flex;gap:6px;align-items:center}.public-note a{color:#254d39;font-weight:750;text-decoration:underline}

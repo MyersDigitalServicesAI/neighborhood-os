@@ -27,6 +27,13 @@ export function counts(db) {
   });
 }
 
+export function publicEvents(db,data = {}) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role anon');
+    return (await tx.query('select public.neighborhood_public_events($1) as value',[JSON.stringify(data)])).rows[0].value;
+  });
+}
+
 export function mail(db,data) {
   return db.transaction(async (tx) => {
     await tx.exec('set local role service_role');
@@ -65,6 +72,7 @@ export function fixtureAdapter(db, accounts) {
       return { access_token:token,refresh_token:token,expires_in:3600 };
     },
     counts:() => counts(db),
+    publicEvents:(d) => publicEvents(db,d),
     mail:(d) => mail(db,d),
     importEvents:(d) => importEvents(db,d),
     async rpc(token, op, data) {

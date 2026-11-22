@@ -2,7 +2,7 @@ import { action, ago, avatar, back, blank, brand, button, categories, check, chi
   illustration, money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas } from './ui.js';
 
 export function landing(config) {
-  return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="desktop-link" href="#standards">Community standards</a>'+
+  return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="landing-events" href="/events">Events</a><a class="desktop-link" href="#standards">Community standards</a>'+
     action('Sign in','login','outline')+'</nav></header><main id="content" class="wrap landing">'+
     '<section class="hero"><div class="hero-copy">'+chip('Northeast Ohio pilot','pin','location')+
     '<h1>Where neighborhoods <em>become neighbors.</em></h1>'+
@@ -256,7 +256,7 @@ export function composer(type,businesses = [],area = 'My neighborhood') {
     field('Title','title',{min:3,max:120,placeholder:kind==='sale'?'What are you listing?':'What would you like neighbors to know?'})+extra+
     field('Details','body',{type:'textarea',min:3,max:2400,hint:'Keep exact addresses, phone numbers, and personal information out of your post.'})+
     (kind==='poll'?'':upload())+
-    select('Who can see this','reach',[['area',area+' only'],['nearby',area+' and nearby neighborhoods'],['region','All of Northeast Ohio']],kind==='event'?'region':'nearby')+(kind==='event'?'<p class="small reach-hint">Events are shared with all of Northeast Ohio so neighbors from other communities can find them. Choose “'+esc(area)+' only” for a private gathering like a block party.</p>':'')+
+    select('Who can see this','reach',[['area',area+' only'],['nearby',area+' and nearby neighborhoods'],['region','All of Northeast Ohio']],kind==='event'?'region':'nearby')+(kind==='event'?'<p class="small reach-hint">Events shared with all of Northeast Ohio also appear on Nabora’s public events page, without your name. Choose “'+esc(area)+' only” for a private gathering like a block party.</p>':'')+
     button('Publish post','primary','arrow'))+'</section>';
 }
 function reportContent(id,kind) {
@@ -735,6 +735,7 @@ export function eventsView(data,home) {
     '<span class="event-main"><strong>'+esc(e.title)+'</strong>'+(e.place?'<small>'+icon('pin',13)+esc(e.place)+'</small>':'')+
     '<span class="event-tags">'+chip(e.area,'',e.area_id===home?'verified':'location')+(e.going?'<small>'+esc(e.going)+' going</small>':'')+'</span></span>'+icon('arrow',17)+'</a>';
   return heading('WHAT’S ON','Events across the city','See what’s happening in your neighborhood and every community around it.',action('Post an event','new/event','primary','plus'))+
+    '<p class="small public-note">'+icon('external',14)+' Anyone can browse citywide events at <a href="/events">nabora.us/events</a>. Share it.</p>'+
     '<section class="card panel events-filters">'+tabs+picker+'</section>'+
     (days.length ? days.map((d)=>'<section class="detail-section event-day"><h2>'+esc(d.label)+'</h2><div class="cards">'+d.items.map(card).join('')+'</div></section>').join('')+
       (events.length===60?'<p class="small">Showing the next 60 events. Pick a neighborhood or a shorter time to see more.</p>':'') :

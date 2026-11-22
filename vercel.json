@@ -59,5 +59,11 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/events",
+      "destination": "/api/core?action=events-page"
+    }
   ]
 }

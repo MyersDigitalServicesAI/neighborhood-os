@@ -17,6 +17,11 @@ if (fixture) {
 const vite = await createVite({ server:{ middlewareMode:true, hmr:false }, appType:'spa' });
 const handler = makeHandler({ env,database,local:true });
 createServer((req,res) => {
+  if (req.url?.split('?')[0] === '/events') {
+    // Mirrors the /events rewrite in vercel.json.
+    req.url = '/api/core?action=events-page'+(req.url.includes('?') ? '&'+req.url.split('?')[1] : '');
+    return handler(req,res);
+  }
   if (req.url?.split('?')[0] === '/api/core') return handler(req,res);
   vite.middlewares(req,res);
 }).listen(port,'127.0.0.1',() => console.log('Nabora listening on ' + env.APP_ORIGIN));
