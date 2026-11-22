@@ -1,6 +1,7 @@
 import { billingAdapter } from './billing.js';
 import { Problem, supabaseAdapter } from './supabase.js';
 import { deliver, mailerAdapter } from './mail.js';
+import { gatherEvents } from './events.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -43,7 +44,7 @@ function cookies(req) {
 }
 
 export function makeHandler({ env = globalThis.process?.env ?? {}, database = supabaseAdapter(env), billing = billingAdapter(env,database),
-  local = false, mailer = mailerAdapter(env) } = {}) {
+  local = false, mailer = mailerAdapter(env), gather = () => gatherEvents() } = {}) {
   const prefix = local ? 'nh_' : '__Host-nh_';
   function cookie(name,value,maxAge) {
     return prefix + name + '=' + value + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + (local ? '' : '; Secure');
@@ -87,6 +88,14 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         const purged = await database.mail({ op:'purge' });
         const mail = await deliver(database,mailer,{ budget:20000,limit:25 });
         return reply(res,200,{ ...mail,...purged });
+      }
+      if (req.method === 'GET' && action === 'events') {
+        // Weekly job: post upcoming library events and ward community meetings into each neighborhood.
+        if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
+        if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
+        const { events: found, failures } = await gather();
+        const result = await database.importEvents({ events:found, limit:45 });
+        return reply(res,200,{ ...result,found:found.length,failures });
       }
       if (req.method === 'GET' && action === 'callback') {
         const code = url.searchParams.get('code');

@@ -23,7 +23,23 @@ export function landing(config) {
     feature('brief','Local businesses','Free profiles, service requests, and reviews that a person checks before they are published.')+
     feature('shield','Vetted businesses','A one-time vetting confirms a business is who it says it is. The badge is earned, never rented.')+
     feature('lock','Verified without a file on you','Confirm your address by postcard. We delete it as soon as the card is mailed.')+
-    '</div></section></main><footer class="landing-footer wrap">'+brand+'<div><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></footer>';
+    '</div></section>'+story(config)+'</main><footer class="landing-footer wrap">'+brand+'<div><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></footer>';
+}
+function story(config) {
+  const pillars = [
+    ['megaphone','News that’s actually local','Safety alerts, street closures, and what your ward is working on, from the people it affects.'],
+    ['calendar','Events worth leaving the house for','Library craft nights, ward meetings, holiday lights. What’s on this week, in one place.'],
+    ['pin','What’s happening next door','A guide to every neighborhood: your council member, parks, rec centers, food help, and who to call.'],
+    ['heart','Who knows and recommends who','Neighbors vouch for each other and share the plumber, sitter, and corner spot they actually trust.']
+  ];
+  return '<section class="story" aria-labelledby="story-title"><div class="story-copy"><p class="eyebrow">OUR STORY</p>'+
+    '<h2 id="story-title">Built in Cleveland, one block at a time.</h2>'+
+    '<p>Cleveland is a city of neighborhoods. But the apps we use to talk to each other were built somewhere else, for everywhere else. Posts get buried, ads fill the feed, and you can live on a street for years without knowing who’s three doors down.</p>'+
+    '<p>So a local entrepreneur set out to build something better: social media with a touch of Cleveland. No outrage feed, no strangers from across the country. Just the people, places, and plans that make your neighborhood home.</p>'+
+    '<p class="story-line">Where neighborhoods become neighbors.</p></div>'+
+    '<div class="story-pillars">'+pillars.map(([image,title,text])=>feature(image,title,text)).join('')+'</div>'+
+    '<div class="story-close"><p>Free for neighbors. Verified by neighbors. Made in Cleveland, starting with all 34 city neighborhoods and growing across Cuyahoga County.</p>'+
+    action(config.signups ? 'Find your neighborhood' : 'Pilot sign in',config.signups ? 'signup' : 'login','primary','arrow')+'</div></section>';
 }
 function feature(image,title,description) {
   return '<article><span class="feature-icon">'+icon(image,22)+'</span><h3>'+esc(title)+'</h3><p>'+esc(description)+'</p></article>';

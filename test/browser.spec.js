@@ -441,3 +441,14 @@ test('neighbors open their neighborhood guide from the feed and admins correct a
   await expect(page.locator('.guide-item',{hasText:'Pearl Road Block Club'})).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+test('the landing page tells the Nabora story and fits a phone',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/');
+  const story = page.locator('section.story');
+  await expect(story.getByRole('heading',{name:'Built in Cleveland, one block at a time.'})).toBeVisible();
+  await expect(story).toContainText('Who knows and recommends who');
+  await story.scrollIntoViewIfNeeded();
+  await story.screenshot({path:'test-results/story-mobile.png'});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+});
