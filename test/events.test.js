@@ -51,6 +51,8 @@ test('import places events in their neighborhood, from the owner, once, and with
     { ...base, branch:'Atlantis', source_url:'https://cpl.libcal.com/event/92', title:'Unknown branch', starts_at:new Date(Date.now()+2*86400000).toISOString() },
     { ...base, branch:'South Brooklyn', source_url:'https://cpl.libcal.com/event/93', title:'Too far out', starts_at:new Date(Date.now()+30*86400000).toISOString() },
     { ...base, ward:4, source_url:'https://www.clevelandcitycouncil.gov/w4', title:'Ward 4 Community Meeting', starts_at:new Date(Date.now()+3*86400000).toISOString() },
+    { ...base, body:'', branch:'South Brooklyn', source_url:'https://cpl.libcal.com/event/90', title:'No description', starts_at:new Date(Date.now()+2*86400000).toISOString() },
+    { ...base, branch:'South Brooklyn', source_url:'https://cpl.libcal.com/event/89', title:'x'.repeat(5), place:'p'.repeat(5), starts_at:'not a date' },
     ...[94,95,96].map((id)=>({ ...base, branch:'South Brooklyn', source_url:'https://cpl.libcal.com/event/'+id, title:'Event '+id, starts_at:new Date(Date.now()+4*86400000).toISOString() }))
   ];
   const first = await importEvents(db,{ events });
