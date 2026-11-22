@@ -109,7 +109,7 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
         if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
         const { events: found, failures } = await gather();
-        const result = await database.importEvents({ events:found, limit:45 });
+        const result = await database.importEvents({ events:found, limit:100 });
         return reply(res,200,{ ...result,found:found.length,failures });
       }
       if (req.method === 'GET' && action === 'callback') {
