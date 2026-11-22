@@ -2,6 +2,7 @@ import { billingAdapter } from './billing.js';
 import { Problem, supabaseAdapter } from './supabase.js';
 import { deliver, mailerAdapter } from './mail.js';
 import { gatherEvents } from './events.js';
+import { eventsPage } from './events-page.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -80,6 +81,20 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         res.setHeader('Content-Type','application/json; charset=utf-8');
         res.setHeader('Cache-Control','public, max-age=300, s-maxage=300');
         return res.end(JSON.stringify(counts));
+      }
+      if (req.method === 'GET' && (action === 'public-events' || action === 'events-page')) {
+        // Public: events shared with all of Northeast Ohio, for anyone. Cached briefly at the edge.
+        const span = ['week','weekend'].includes(url.searchParams.get('when')) ? url.searchParams.get('when') : '';
+        const place = /^[a-z0-9-]{2,40}$/.test(url.searchParams.get('area') ?? '') ? url.searchParams.get('area') : '';
+        const data = await database.publicEvents({ when:span,area:place });
+        res.statusCode = 200;
+        res.setHeader('Cache-Control','public, max-age=300, s-maxage=600');
+        if (action === 'public-events') {
+          res.setHeader('Content-Type','application/json; charset=utf-8');
+          return res.end(JSON.stringify(data));
+        }
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        return res.end(eventsPage(data,(env.APP_ORIGIN || base).replace(/\/$/,'')));
       }
       if (req.method === 'GET' && action === 'deliver') {
         // Daily job: send anything still queued and delete stale address-verification requests.

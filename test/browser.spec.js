@@ -491,3 +491,37 @@ test('neighbors browse events across the city and new events are shared citywide
   await expect(page.getByRole('heading',{name:'Pearl Road holiday market',level:1})).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('signed-out visitors browse citywide events at /events, without poster names',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await login(page,'ava');
+  await page.goto('/#new/event');
+  await page.getByLabel('Title').fill('Public holiday market');
+  const starts = new Date(Date.now()+2*86400000); starts.setHours(15,0,0,0);
+  await page.getByLabel('Starts').fill(new Date(starts.getTime()-starts.getTimezoneOffset()*60000).toISOString().slice(0,16));
+  await page.getByLabel('Where').fill('Pearl Road');
+  await page.getByLabel('Details').fill('Local makers and cocoa, open to everyone.');
+  await page.getByRole('button',{name:'Publish post'}).click();
+  await expect(page.getByText(/shared with all of Northeast Ohio/)).toBeVisible();
+  await page.getByRole('link',{name:'Account'}).click();
+  await page.getByRole('button',{name:'Sign out'}).click();
+  await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
+
+  await page.getByRole('link',{name:'Events',exact:true}).click();
+  await expect(page).toHaveURL(/\/events$/);
+  await expect(page.getByRole('heading',{name:'Things to do in Cleveland',level:1})).toBeVisible();
+  const event = page.locator('article.event',{hasText:'Public holiday market'});
+  await expect(event).toContainText('Old Brooklyn');
+  await expect(page.locator('article.event',{hasText:'Saturday trail cleanup at Brookside'})).toHaveCount(0);
+  await expect(page.locator('main')).not.toContainText('Ava');
+  await page.screenshot({path:'test-results/public-events-mobile.png',fullPage:false});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.getByRole('link',{name:'Next 7 days'}).click();
+  await expect(page).toHaveURL(/when=week/);
+  await expect(page.getByRole('heading',{name:'Things to do in Cleveland this week'})).toBeVisible();
+  await page.goto('/#events');
+  await expect(page).toHaveURL(/\/events$/);
+  await event.getByRole('link',{name:'Join Nabora to RSVP'}).click();
+  await expect(page).toHaveURL(/#signup$/);
+  await expect(page.locator('.auth-card')).toBeVisible();
+});

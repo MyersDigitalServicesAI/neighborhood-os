@@ -159,6 +159,7 @@ async function render() {
     app.innerHTML = view.authView(key,{...config,invite:!!storedInvite() || !!storedCheckin()});
     return;
   }
+  if (!signedIn && key === 'events') return location.replace('/events'+(params.toString()?'?'+params:''));
   if (!signedIn) {
     app.innerHTML = guarded.has(key) ? view.authView('login',{...config,invite:!!storedInvite()}) : view.landing(config);
     if (!guarded.has(key)) await showLandingMap(current);

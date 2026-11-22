@@ -55,6 +55,7 @@ export function supabaseAdapter(env, request = fetch) {
     logout: (token) => call('/auth/v1/logout?scope=local', { token, payload: {} }),
     rpc: (token, op, d) => call('/rest/v1/rpc/neighborhood_app', { token, payload: { op, d } }),
     counts: () => call('/rest/v1/rpc/neighborhood_counts', { payload: {} }),
+    publicEvents: (d) => call('/rest/v1/rpc/neighborhood_public_events', { payload: { d } }),
     mail: (d) => call('/rest/v1/rpc/neighborhood_mail', { admin: true, payload: { d } }),
     importEvents: (d) => call('/rest/v1/rpc/neighborhood_events', { admin: true, payload: { d } }),
     syncBilling: (d) => call('/rest/v1/rpc/neighborhood_billing', { admin: true, payload: { d } })
