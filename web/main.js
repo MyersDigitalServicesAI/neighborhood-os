@@ -8,7 +8,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -216,6 +216,12 @@ async function render() {
       case 'map':
         content = view.mapView(area);
         break;
+      case 'events': {
+        page = 'events';
+        const when = ['week','weekend'].includes(params.get('when')) ? params.get('when') : '';
+        content = view.eventsView(await rpc('events',{area:params.get('area') ?? '',when}),member.area_id);
+        break;
+      }
       case 'guide': {
         page = 'guide';
         content = view.guideView(await rpc('guide',{area:arg}),context.areas,member.area_id,context.canEditGuide);
@@ -399,6 +405,7 @@ async function submit(operation,data,element) {
   }
   if (operation === 'search') return go('search?'+new URLSearchParams({q:data.q.trim()}));
   if (operation === 'guide_area') return go('guide/'+encodeURIComponent(data.area));
+  if (operation === 'events_filter') return go('events?'+new URLSearchParams({...(data.when?{when:data.when}:{}),...(data.area?{area:data.area}:{})}));
   if (operation === 'signup' || operation === 'recover') {
     await raw(operation,data);
     element.reset();
