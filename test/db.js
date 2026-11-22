@@ -34,6 +34,13 @@ export function mail(db,data) {
   });
 }
 
+export function importEvents(db,data) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role service_role');
+    return (await tx.query('select public.neighborhood_events($1) as value',[JSON.stringify(data)])).rows[0].value;
+  });
+}
+
 export function sync(db,data) {
   return db.transaction(async (tx) => {
     await tx.exec('set local role service_role');
@@ -59,6 +66,7 @@ export function fixtureAdapter(db, accounts) {
     },
     counts:() => counts(db),
     mail:(d) => mail(db,d),
+    importEvents:(d) => importEvents(db,d),
     async rpc(token, op, data) {
       const actor = signedIn.get(token);
       if (!actor) throw new Problem(401,'Sign in to continue.');

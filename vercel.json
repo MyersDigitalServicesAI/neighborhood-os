@@ -10,6 +10,10 @@
     {
       "path": "/api/core?action=deliver",
       "schedule": "17 13 * * *"
+    },
+    {
+      "path": "/api/core?action=events",
+      "schedule": "23 11 * * 1"
     }
   ],
   "redirects": [
