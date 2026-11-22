@@ -452,3 +452,42 @@ test('the landing page tells the Nabora story and fits a phone',async({page})=>{
   await story.screenshot({path:'test-results/story-mobile.png'});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
 });
+
+test('neighbors browse events across the city and new events are shared citywide by default',async({page})=>{
+  const errors = [];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  await page.setViewportSize({width:390,height:844});
+  await login(page,'ava');
+  await page.goto('/#new/event');
+  await expect(page.getByLabel('Who can see this')).toHaveValue('region');
+  await page.getByLabel('Title').fill('Pearl Road holiday market');
+  const starts = new Date(Date.now()+3*86400000); starts.setHours(17,0,0,0);
+  const local = new Date(starts.getTime()-starts.getTimezoneOffset()*60000).toISOString().slice(0,16);
+  await page.getByLabel('Starts').fill(local);
+  await page.getByLabel('Where').fill('Pearl Road');
+  await page.getByLabel('Details').fill('Local makers, hot cocoa and carols on Pearl Road.');
+  await page.getByRole('button',{name:'Publish post'}).click();
+  await expect(page.getByText(/shared with all of Northeast Ohio/)).toBeVisible();
+  await page.getByRole('link',{name:'Account'}).click();
+  await page.getByRole('button',{name:'Sign out'}).click();
+  await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
+
+  // Cross-community visibility is covered in test/citywide.test.js; here a neighbor browses the page itself.
+  await login(page,'jamal');
+  await page.locator('.feed-top').getByRole('link',{name:'Events'}).click();
+  await expect(page.getByRole('heading',{name:'Events across the city'})).toBeVisible();
+  const market = page.locator('.event-row',{hasText:'Pearl Road holiday market'});
+  await expect(market).toContainText('Old Brooklyn');
+  await expect(page.locator('.event-day h2').first()).toBeVisible();
+  await page.screenshot({path:'test-results/events-mobile.png',fullPage:false});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.locator('.events-filters select[name="area"]').selectOption('old-brooklyn');
+  await page.getByRole('button',{name:'Show'}).click();
+  await expect(page).toHaveURL(/area=old-brooklyn/);
+  await page.getByRole('link',{name:'Next 7 days'}).click();
+  await expect(page).toHaveURL(/when=week/);
+  await expect(market).toBeVisible();
+  await market.click();
+  await expect(page.getByRole('heading',{name:'Pearl Road holiday market',level:1})).toBeVisible();
+  expect(errors).toEqual([]);
+});

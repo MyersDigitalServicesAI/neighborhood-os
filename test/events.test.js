@@ -60,7 +60,7 @@ test('import places events in their neighborhood, from the owner, once, and with
   assert.deepEqual(first.areas,{'old-brooklyn':3});
   const rows = (await db.query("select author_id,area_id,reach,title,source_url from neighborhood.posts where source_url is not null order by event_at")).rows;
   assert.deepEqual(rows.map((r)=>r.title),['Ornament craft','Ward 4 Community Meeting','Event 94']);
-  assert.ok(rows.every((r)=>r.author_id===actors.rina && r.reach==='nearby' && r.area_id==='old-brooklyn'));
+  assert.ok(rows.every((r)=>r.author_id===actors.rina && r.reach==='region' && r.area_id==='old-brooklyn'));
   const again = await importEvents(db,{ events });
   assert.equal(again.posted,0,'never posts the same event twice, and Old Brooklyn now has 4 coming up');
   assert.ok(again.empty.includes('Tremont'));

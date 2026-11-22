@@ -107,7 +107,7 @@ export function joinView(available,canJoin,invite = '',checkin = '') {
 }
 
 const navigation = [
-  ['feed','Neighborhood','home'],['guide','Neighborhood guide','book'],['map','Map','pin'],['market','Marketplace','tag'],['requests','Service requests','brief'],['directory','Businesses','shop'],
+  ['feed','Neighborhood','home'],['events','Events','calendar'],['guide','Neighborhood guide','book'],['map','Map','pin'],['market','Marketplace','tag'],['requests','Service requests','brief'],['directory','Businesses','shop'],
   ['inbox','Messages','inbox'],['notifications','Notifications','bell'],['account','Account','user']
 ];
 const mobileNavigation = [['feed','Feed','home'],['market','Market','tag'],['directory','Businesses','shop'],['inbox','Messages','inbox'],['notifications','Alerts','bell']];
@@ -185,7 +185,7 @@ export function feedView(posts, area, selected, filter, alerts = [], scope = '',
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
     heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
+    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
     scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (pinned.length ? '<section class="pinned" aria-label="Pinned posts"><h2 class="eyebrow">'+icon('pin',14)+'PINNED</h2><div class="cards">'+pinned.map(postCard).join('')+'</div></section>' : '')+
@@ -256,7 +256,7 @@ export function composer(type,businesses = [],area = 'My neighborhood') {
     field('Title','title',{min:3,max:120,placeholder:kind==='sale'?'What are you listing?':'What would you like neighbors to know?'})+extra+
     field('Details','body',{type:'textarea',min:3,max:2400,hint:'Keep exact addresses, phone numbers, and personal information out of your post.'})+
     (kind==='poll'?'':upload())+
-    select('Who can see this','reach',[['area',area+' only'],['nearby',area+' and nearby neighborhoods'],['region','All of Northeast Ohio']],'nearby')+
+    select('Who can see this','reach',[['area',area+' only'],['nearby',area+' and nearby neighborhoods'],['region','All of Northeast Ohio']],kind==='event'?'region':'nearby')+(kind==='event'?'<p class="small reach-hint">Events are shared with all of Northeast Ohio so neighbors from other communities can find them. Choose “'+esc(area)+' only” for a private gathering like a block party.</p>':'')+
     button('Publish post','primary','arrow'))+'</section>';
 }
 function reportContent(id,kind) {
@@ -713,4 +713,30 @@ export function guideView(guide,areas,home,canEdit = false) {
       blank('book','This guide is coming soon',area.region==='Cleveland'?'We are still putting this neighborhood together.':'Guides for the suburbs are next on our list.'))+
     (canEdit?'<details class="card panel guide-add"><summary>'+icon('plus',16)+' Add a listing to '+esc(area.name)+'</summary>'+
       form('save_guide_item',hidden('area',area.id)+select('Section','section',guideSections.map(([key,title])=>[key,title]))+guideFields()+button('Add to guide','primary'))+'</details>':'');
+}
+
+const dayLabel = new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'America/New_York'});
+const timeLabel = new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+const dayKey = new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'});
+export function eventsView(data,home) {
+  const {events,areas,when,area} = data;
+  const query = (w,a) => { const q = new URLSearchParams({...(w?{when:w}:{}),...(a?{area:a}:{})}).toString(); return '#events'+(q?'?'+q:''); };
+  const tabs = '<nav class="tabs" aria-label="When">'+[['','All upcoming'],['week','Next 7 days'],['weekend','This weekend']].map(([key,label])=>
+    '<a href="'+query(key,area)+'" '+((when==='all'?'':when)===key?'aria-current="page"':'')+'>'+esc(label)+'</a>').join('')+'</nav>';
+  const total = areas.reduce((sum,a)=>sum+a.count,0);
+  const picker = form('events_filter',hidden('when',when==='all'?'':when)+select('Neighborhood','area',[['','Everywhere ('+total+')'],...areas.map((a)=>[a.id,a.name+' ('+a.count+')'+(a.id===home?' · yours':'')])],area ?? '')+button('Show','outline'));
+  const days = [];
+  for (const e of events) {
+    const key = dayKey.format(new Date(e.event_at));
+    if (days.at(-1)?.key !== key) days.push({key,label:dayLabel.format(new Date(e.event_at)),items:[]});
+    days.at(-1).items.push(e);
+  }
+  const card = (e) => '<a class="card event-row" href="#post/'+ref(e.id)+'"><span class="event-time">'+esc(timeLabel.format(new Date(e.event_at)))+'</span>'+
+    '<span class="event-main"><strong>'+esc(e.title)+'</strong>'+(e.place?'<small>'+icon('pin',13)+esc(e.place)+'</small>':'')+
+    '<span class="event-tags">'+chip(e.area,'',e.area_id===home?'verified':'location')+(e.going?'<small>'+esc(e.going)+' going</small>':'')+'</span></span>'+icon('arrow',17)+'</a>';
+  return heading('WHAT’S ON','Events across the city','See what’s happening in your neighborhood and every community around it.',action('Post an event','new/event','primary','plus'))+
+    '<section class="card panel events-filters">'+tabs+picker+'</section>'+
+    (days.length ? days.map((d)=>'<section class="detail-section event-day"><h2>'+esc(d.label)+'</h2><div class="cards">'+d.items.map(card).join('')+'</div></section>').join('')+
+      (events.length===60?'<p class="small">Showing the next 60 events. Pick a neighborhood or a shorter time to see more.</p>':'') :
+      blank('calendar','No events here yet',when==='weekend'?'Nothing is posted for this weekend yet. Try the next 7 days.':'Be the first: post an event and neighbors across the city can find it.',action('Post an event','new/event','outline','plus')));
 }
