@@ -152,3 +152,32 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .landing-events{font-weight:750;color:#254d39;padding:8px 10px}.public-note{margin:-4px 0 4px;display:flex;gap:6px;align-items:center}.public-note a{color:#254d39;font-weight:750;text-decoration:underline}
 .food-kind{margin:0 0 2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--quiet)}
 .food-kind .chip{text-transform:none;letter-spacing:0}.food-when{font-weight:700;margin:0 0 6px}.food-badges{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
+.flyer-row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.flyer-row p{margin:3px 0 0}
+.flyer-sheet{display:grid;gap:0;margin:16px auto 0;background:#fff;color:#17251d;width:100%;max-width:8.5in;border:1px solid #d6dccf;border-radius:10px;overflow:hidden}
+.flyer-sheet.half{grid-template-columns:1fr}.flyer-sheet.quarter{grid-template-columns:1fr 1fr}
+.flyer-card{border:1px dashed #9aa79c;padding:28px 30px;display:flex;flex-direction:column;gap:10px;min-width:0;break-inside:avoid}
+.flyer-brand{display:flex;align-items:center;gap:9px;font-weight:850;font-size:1.35rem;color:#194633}
+.flyer-eyebrow{margin:6px 0 0;letter-spacing:.1em;font-weight:850;font-size:.8rem;color:#3e7d6a}
+.flyer-card h2{margin:0;font-size:2rem;line-height:1.1;overflow-wrap:anywhere}
+.flyer-card ul{margin:2px 0;padding-left:1.2em;font-size:1.05rem;line-height:1.45}
+.flyer-join{display:flex;align-items:center;gap:18px;margin-top:auto}.flyer-join .qr-slot{width:150px;flex:none}.flyer-join .qr-slot svg{display:block;width:100%;height:auto}
+.flyer-join p{margin:0;display:grid;gap:4px}.flyer-join strong{font-size:1.3rem;color:#194633}.flyer-join span{font-size:.95rem;font-weight:700;overflow-wrap:anywhere}
+.flyer-foot{margin:4px 0 0;font-size:.8rem;color:#4d5d52}
+.flyer-sheet.quarter .flyer-card{padding:18px 18px;gap:7px}.flyer-sheet.quarter h2{font-size:1.3rem}.flyer-sheet.quarter ul{font-size:.85rem}
+.flyer-sheet.quarter .flyer-join{gap:10px}.flyer-sheet.quarter .qr-slot{width:105px}.flyer-sheet.quarter .flyer-join strong{font-size:1rem}.flyer-sheet.quarter .flyer-join span{font-size:.75rem}
+.flyer-sheet.quarter .flyer-brand{font-size:1.05rem}.flyer-sheet.quarter .flyer-brand img{width:30px;height:auto}
+@media (max-width:560px){.flyer-sheet.quarter{grid-template-columns:1fr}}
+@media print{
+  @page{size:letter;margin:0}
+  body.flyer-mode{background:#fff}
+  body.flyer-mode .app-header,body.flyer-mode .sidebar,body.flyer-mode .rightbar,body.flyer-mode .bottom-nav,body.flyer-mode .no-print,body.flyer-mode #notice,body.flyer-mode .skip{display:none !important}
+  body.flyer-mode .workspace,body.flyer-mode .app-main{display:block;margin:0;padding:0;max-width:none;width:auto}
+  body.flyer-mode .flyer-sheet{border:0;border-radius:0;margin:0;width:8.5in;height:11in;max-width:none}
+  body.flyer-mode .flyer-sheet.half{grid-template-rows:5.5in 5.5in}
+  body.flyer-mode .flyer-sheet.quarter{grid-template-columns:4.25in 4.25in;grid-template-rows:5.5in 5.5in}
+  body.flyer-mode .flyer-sheet.half .flyer-card{padding:.45in .6in}
+  body.flyer-mode .flyer-sheet.half h2{font-size:2.5rem}body.flyer-mode .flyer-sheet.half ul{font-size:1.25rem}
+  body.flyer-mode .flyer-sheet.half .qr-slot{width:2.1in}body.flyer-mode .flyer-sheet.half .flyer-join strong{font-size:1.7rem}body.flyer-mode .flyer-sheet.half .flyer-join span{font-size:1.1rem}
+  body.flyer-mode .flyer-sheet.quarter .qr-slot{width:1.6in}body.flyer-mode .flyer-sheet.quarter h2{font-size:1.55rem}body.flyer-mode .flyer-sheet.quarter ul{font-size:.95rem}
+  body.flyer-mode .flyer-card{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}

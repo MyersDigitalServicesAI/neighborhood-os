@@ -9,7 +9,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events','flyers','flyer']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -322,6 +322,17 @@ async function render() {
         page = 'account';
         content = view.hostSessionView(await rpc('checkin_host',{id}));
         break;
+      case 'flyers':
+        page = 'account';
+        content = view.flyersView((await rpc('flyers')).flyers,context,location.origin);
+        break;
+      case 'flyer': {
+        page = 'account';
+        const flyer = (await rpc('flyers')).flyers.find((f)=>f.id===id) ?? (context.staff==='admin' ? (await rpc('admin')).flyers?.find((f)=>f.id===id) : null);
+        if (!flyer) throw new ApiError(404,'This flyer was retired or isn’t yours.');
+        content = view.flyerSheet(flyer,params.get('f')==='quarter'?'quarter':'half',location.origin);
+        break;
+      }
       case 'admin': {
         const data = await rpc('admin');
         content = view.adminView(data,context.areas,createdInvite);
@@ -361,6 +372,11 @@ async function render() {
   }
   for (const node of app.querySelectorAll('form[data-action="decide_vetting"]')) setEvidence(node);
   if (key === 'account' || page === 'feed') await showPush(current);
+  document.body.classList.toggle('flyer-mode',key === 'flyer');
+  if (key === 'flyer') {
+    const { drawQr } = await import('./qr.js');
+    for (const slot of app.querySelectorAll('.qr-slot')) drawQr(slot,slot.dataset.link,'QR code that opens Nabora sign-up');
+  }
   if (key === 'host-session') {
     const root = document.querySelector('#qr-root');
     if (root) (await import('./qr.js')).drawQr(root,root.dataset.link);
@@ -524,6 +540,12 @@ async function submit(operation,data,element) {
       await sync();
       show(result.already ? 'Checked in. Thanks for coming.' : 'You’re checked in and verified. Welcome!');
       return go('account');
+    case 'create_flyer':
+      show('Flyer ready. Print it, cut along the dotted lines, and post it.');
+      return go('flyer/'+result.id);
+    case 'revoke_flyer':
+      show('Flyer retired. Its QR code no longer lets people in.');
+      return render();
     case 'create_checkin':
       return go('host-session/'+result.id);
     case 'create_post':
@@ -549,6 +571,15 @@ async function submit(operation,data,element) {
 }
 
 app.addEventListener('click',async (event)=>{
+  if (event.target.closest('[data-print]')) { window.print(); return; }
+  const card = event.target.closest('[data-card]');
+  if (card) {
+    card.disabled = true;
+    try { await (await import('./card.js')).shareCard(JSON.parse(card.dataset.card),location.origin); }
+    catch (error) { if (error?.name !== 'AbortError') show('The share card couldn’t be made. Try again.'); }
+    finally { card.disabled = false; }
+    return;
+  }
   const toggle = event.target.closest('[data-push]');
   if (toggle) {
     toggle.disabled = true;
