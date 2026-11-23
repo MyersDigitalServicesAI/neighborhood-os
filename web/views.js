@@ -1,5 +1,5 @@
 import { action, ago, avatar, back, blank, brand, button, categories, check, chip, date, esc, field, form, heading, hidden, icon,
-  illustration, money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas } from './ui.js';
+  illustration, money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas, mark } from './ui.js';
 
 export function landing(config) {
   return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="landing-events" href="/events">Events</a><a class="landing-events desktop-link" href="/food">Local food</a><a class="desktop-link" href="#standards">Community standards</a>'+
@@ -295,6 +295,7 @@ export function postView(post,me,businesses,canPin = false) {
     '<p class="fact reach">'+icon('pin',16)+esc('Posted in '+post.area+' · shared with '+(post.local?reachLabel[post.reach]:post.reach==='region'?'all of Northeast Ohio':'nearby neighborhoods'))+'</p>'+
     (post.kind==='poll'?pollBlock(post):'')+
     '<div class="inline-actions">'+likeButton(post)+
+    (mine || post.reach==='region' ? '<button class="button outline" type="button" data-card="'+esc(JSON.stringify(shareCardData(post)))+'">'+icon('image',17)+'Share card</button>' : '')+
     (post.kind==='event'?quick('rsvp',hidden('id',post.id),(post.attending?'You’re going':'I’m going')+' · '+post.going,'calendar',post.attending):'')+
     (!mine ? action(post.business?'Message business':'Message '+post.author,'compose/'+ref(post.author_id),'outline','inbox') :
       closeAction[post.kind]&&!post.closed ? form('close_post',hidden('id',post.id)+button(closeAction[post.kind],'outline')) : '')+
@@ -495,7 +496,7 @@ export function accountView(context) {
     residencyPanel(context)+
     '<section class="card panel"><h2>Your activity</h2><div class="inline-actions">'+action('My business profiles','manage','outline','shop')+
     action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+(context.staff==='admin'?action('People and invites','admin','outline','user'):'')+
-    (context.hostAreas?.length?action('Run a check-in','host','outline','pin'):'')+'</div></section>'+
+    (context.hostAreas?.length?action('Run a check-in','host','outline','pin'):'')+(context.canFlyer?action('Print flyers','flyers','outline','external'):'')+'</div></section>'+
     '<section class="card panel" id="push-panel" hidden></section>'+
     '<section class="card panel"><h2>Email</h2><p class="quiet">'+esc(context.email ?? '')+'</p>'+
       form('set_email_notices',hidden('on',context.emailNotices?'false':'true')+'<p class="small">'+(context.emailNotices ?
@@ -534,6 +535,11 @@ export function adminView(data,areas,created) {
       (live(i) ? '<div class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(inviteLink(i.code))+'">Copy link</button>'+
         form('revoke_invite',hidden('id',i.id)+button('Revoke','ghost'))+'</div>' : chip(i.revoked_at?'Revoked':i.uses>=i.max_uses?'Used up':'Expired','','muted'))+'</article>').join('')+'</div>' :
       '<p class="quiet">No invite links yet.</p>')+'</section>'+
+    '<section class="detail-section"><h2>Flyers <small>'+(data.flyers?.length ?? 0)+'</small></h2><p class="quiet">Who and where brings neighbors in, best first. '+action('Print a flyer','flyers','outline','external')+'</p>'+
+    (data.flyers?.length ? '<div class="cards">'+data.flyers.map((f)=>'<article class="card panel admin-row"><div><strong>'+esc(f.place)+'</strong><small>'+
+      esc(f.uses+' joined · '+f.area+' · by '+(f.by ?? 'a former member')+' · '+date(f.created_at)+(f.active?'':' · retired'))+'</small></div>'+
+      (f.active ? '<div class="inline-actions">'+action('Print','flyer/'+ref(f.id),'outline','external')+form('revoke_flyer',hidden('id',f.id)+button('Retire','ghost'))+'</div>' : chip('Retired','','muted'))+'</article>').join('')+'</div>' :
+      '<p class="quiet">No flyers yet.</p>')+'</section>'+
     '<section class="detail-section"><h2>Local food claims <small>'+(data.foodClaims?.length ?? 0)+'</small></h2><p class="quiet">Growers asking to manage their listing. Check what they wrote against the farm’s website or phone before approving.</p>'+
     (data.foodClaims?.length ? '<div class="cards">'+data.foodClaims.map((c)=>'<article class="card panel admin-row"><div><strong>'+esc(c.listing)+'</strong><small>'+
       esc((c.name || c.email)+' · '+c.email+' · '+(c.area ?? '')+' · '+date(c.created_at)+(c.owned?' · already managed by someone':''))+'</small><p class="small">'+esc(c.note)+'</p></div>'+
@@ -794,4 +800,50 @@ export function pushPanel(state) {
 export function pushNudge() {
   return '<section class="card panel push-nudge"><h2>Know when neighbors reply</h2><p class="small">Get a notice on this device for replies, messages and safety alerts on your block. You can turn it off anytime.</p>'+
     '<div class="inline-actions">'+pushButton('Turn on notifications','on','primary')+pushButton('Not now','later','ghost')+'</div></section>';
+}
+
+// Printable flyers. Each one is a tracked invite link; the QR codes are drawn after render from data-link.
+export const flyerLink = (origin,code) => origin+'/j/'+code;
+export function flyersView(flyers,context,origin) {
+  const admin = context.staff === 'admin';
+  const areaChoice = admin ? select('Neighborhood','area',[...context.areas].sort((a,b)=>a.name.localeCompare(b.name)).map((a)=>[a.id,a.name]),context.member.area_id) : '';
+  const home = context.areas.find((a)=>a.id===context.member.area_id)?.name ?? 'your neighborhood';
+  return back('Back to account','account')+
+    heading('GROW YOUR BLOCK','Print flyers','Make a flyer for each spot you post it, like the library, a coffee shop or a laundromat. Each one has its own QR code, so you can see which spot brings neighbors in.')+
+    '<section class="card panel"><h2>New flyer</h2>'+form('create_flyer',areaChoice+
+      field('Where will you post it?','place',{min:2,max:60,hint:admin?'For example “South Brooklyn library” or “Gypsy Beans counter.”':'For your neighborhood, '+home+'. For example “South Brooklyn library”.'})+
+      button('Make flyer','primary','plus'))+'</section>'+
+    '<section class="detail-section"><h2>Your flyers <small>'+flyers.length+'</small></h2>'+(flyers.length ? '<div class="cards">'+flyers.map((f)=>
+      '<article class="card panel flyer-row"><div><strong>'+esc(f.place)+'</strong><p class="small">'+esc(f.area)+' · '+f.uses+' '+(f.uses===1?'neighbor':'neighbors')+' joined'+(f.active?'':' · no longer active')+'</p></div>'+
+      '<div class="inline-actions">'+action('Print','flyer/'+ref(f.id),'outline','external')+
+      '<button class="button ghost" type="button" data-copy="'+esc(flyerLink(origin,f.code))+'" data-copied="Flyer link copied.">Copy link</button>'+
+      form('revoke_flyer',hidden('id',f.id)+button('Retire','ghost'))+'</div></article>').join('')+'</div>' :
+      '<p class="quiet">No flyers yet. Make one for each place you’ll post it.</p>')+'</section>';
+}
+const flyerPitch = ['Safety alerts from your block','Events, farmers markets and local help','Real neighbors only. No ads in your feed.'];
+function flyerCard(f,origin) {
+  const link = flyerLink(origin,f.code);
+  return '<div class="flyer-card"><div class="flyer-brand">'+mark+'<span>Nabora</span></div>'+
+    '<p class="flyer-eyebrow">'+esc(f.area.toUpperCase())+'</p><h2>Meet your neighbors in '+esc(f.area)+'.</h2>'+
+    '<ul>'+flyerPitch.map((line)=>'<li>'+esc(line)+'</li>').join('')+'</ul>'+
+    '<div class="flyer-join"><div class="qr-slot" data-link="'+esc(link)+'"></div><p><strong>Scan to join free</strong><span>'+esc(link.replace(/^https?:\/\//,''))+'</span></p></div>'+
+    '<p class="flyer-foot">Free · Made in Cleveland · nabora.us</p></div>';
+}
+export function flyerSheet(f,format,origin) {
+  const count = format === 'quarter' ? 4 : 2;
+  const tab = (value,label) => '<a href="#flyer/'+ref(f.id)+'?f='+value+'"'+(format===value?' aria-current="page"':'')+'>'+label+'</a>';
+  return '<div class="no-print">'+back('Back to flyers','flyers')+
+    heading('PRINT','Flyer for '+f.place,f.area+' · '+f.uses+' joined so far. Print on letter paper, then cut along the dotted lines.',
+      '<button class="button primary" type="button" data-print>Print</button>')+
+    '<nav class="tabs" aria-label="Flyer size">'+tab('half','Half page · 2 per sheet')+tab('quarter','Quarter page · 4 per sheet')+'</nav></div>'+
+    '<div class="flyer-sheet '+(format==='quarter'?'quarter':'half')+'">'+Array.from({length:count},()=>flyerCard(f,origin)).join('')+'</div>';
+}
+
+// What the social share card shows. Only the author, or anyone for posts already shared with all of Northeast Ohio,
+// can make one, so a post kept to one neighborhood never ends up on Facebook by someone else's hand.
+function shareCardData(post) {
+  const [label] = typeInfo[post.kind] ?? typeInfo.discussion;
+  const starts = post.event_at ? new Date(post.event_at) : null;
+  const time = starts && !Number.isNaN(starts.getTime()) ? starts.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) : '';
+  return { id:post.id, kind:label, area:post.area, title:post.title, line:[time,post.place].filter(Boolean).join(' · ') };
 }

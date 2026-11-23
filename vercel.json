@@ -85,6 +85,14 @@
     {
       "source": "/.well-known/assetlinks.json",
       "destination": "/api/core?action=assetlinks"
+    },
+    {
+      "source": "/j/:code",
+      "destination": "/api/core?action=short&j=:code"
+    },
+    {
+      "source": "/p/:id",
+      "destination": "/api/core?action=short&p=:id"
     }
   ]
 }

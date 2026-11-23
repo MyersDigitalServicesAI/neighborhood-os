@@ -605,3 +605,41 @@ test('neighbors are offered notifications once on the feed, and can manage them 
   expect(await page.request.get('/offline.html').then((r)=>r.text())).toContain('You’re offline');
   expect(errors).toEqual([]);
 });
+
+test('an admin prints a flyer whose QR link lets a new neighbor in, and an author makes a share card for a post',async({page})=>{
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'rina');
+  await page.goto('/#account');
+  await page.getByRole('link',{name:'Print flyers'}).click();
+  await page.getByRole('combobox',{name:'Neighborhood'}).selectOption('old-brooklyn');
+  await page.getByLabel('Where will you post it?').fill('South Brooklyn library');
+  await page.getByRole('button',{name:'Make flyer'}).click();
+  await expect(page.getByRole('heading',{name:'Flyer for South Brooklyn library'})).toBeVisible();
+  await expect(page.locator('.flyer-card')).toHaveCount(2);
+  await expect(page.locator('.flyer-card svg[aria-label="QR code that opens Nabora sign-up"]')).toHaveCount(2);
+  await expect(page.locator('.flyer-card').first()).toContainText('Meet your neighbors in Old Brooklyn.');
+  const short = await page.locator('.qr-slot').first().getAttribute('data-link');
+  expect(short).toMatch(/\/j\/[A-Z2-9]{10}$/);
+  await page.getByRole('link',{name:'Quarter page · 4 per sheet'}).click();
+  await expect(page.locator('.flyer-sheet.quarter .flyer-card')).toHaveCount(4);
+  await page.emulateMedia({media:'print'});
+  await page.screenshot({path:'test-results/flyer-quarter-print.png',fullPage:true});
+  await expect(page.locator('.app-header')).toBeHidden();
+  await page.emulateMedia({media:'screen'});
+
+  await page.goto('/#admin');
+  await expect(page.locator('.admin-row',{hasText:'South Brooklyn library'})).toContainText('0 joined · Old Brooklyn · by Rina P.');
+
+  // A post Rina wrote gets a share card; it downloads where the browser can't share files.
+  await page.goto('/#feed');
+  await page.getByRole('link',{name:'Oak bookshelf, five shelves'}).first().click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Share card'}).click();
+  expect((await download).suggestedFilename()).toBe('nabora-oak-bookshelf-five-shelves.png');
+
+  await logout(page);
+  await page.goto(short.replace(/^https?:\/\/[^/]+/,''));
+  await expect(page.getByText('You’ve been invited.',{exact:false})).toBeVisible();
+  expect(errors).toEqual([]);
+});

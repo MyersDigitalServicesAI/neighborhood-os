@@ -28,6 +28,12 @@ createServer((req,res) => {
     req.url = '/api/core?action='+req.url.split('?')[0].slice(1)+'-page'+(req.url.includes('?') ? '&'+req.url.split('?')[1] : '');
     return handler(req,res);
   }
+  const short = req.url?.match(/^\/(j|p)\/([^/?]+)$/);
+  if (short) {
+    // Mirrors the /j/ (flyer) and /p/ (shared post) rewrites in vercel.json.
+    req.url = '/api/core?action=short&'+short[1]+'='+encodeURIComponent(short[2]);
+    return handler(req,res);
+  }
   if (req.url?.split('?')[0] === '/api/core') return handler(req,res);
   vite.middlewares(req,res);
 }).listen(port,'127.0.0.1',() => console.log('Nabora listening on ' + env.APP_ORIGIN));
