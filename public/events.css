@@ -37,3 +37,4 @@ footer{max-width:860px;margin:0 auto;padding:0 16px 30px;color:var(--quiet);font
 section h2 small{color:var(--quiet);font-weight:600}.filter .check{flex:0 0 auto;display:flex;gap:8px;align-items:center;padding-bottom:10px}
 .filter .check input{width:20px;height:20px;accent-color:var(--green)}.sources{color:var(--quiet);font-size:.85rem;margin-top:22px}
 @media (max-width:520px){.spans{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px}.spans::-webkit-scrollbar{display:none}.spans a{white-space:nowrap;flex:0 0 auto}}
+.offline{text-align:center;padding-top:15vh}.offline img{border-radius:18px}.offline p{color:var(--quiet);max-width:420px;margin:0 auto 18px}

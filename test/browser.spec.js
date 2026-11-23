@@ -579,3 +579,29 @@ test('a grower claims their market in the guide, an admin approves it, and the u
   await expect(page).toHaveURL(/snap=1/);
   expect(errors).toEqual([]);
 });
+
+test('neighbors are offered notifications once on the feed, and can manage them on their account page',async({page,context})=>{
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'luis');
+  const nudge = page.locator('.push-nudge');
+  await expect(nudge.getByRole('heading',{name:'Know when neighbors reply'})).toBeVisible();
+  await nudge.getByRole('button',{name:'Not now'}).click();
+  await expect(nudge).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Your neighborhood'})).toBeVisible();
+  await expect(page.locator('.push-nudge')).toHaveCount(0);
+
+  await page.goto('/#account');
+  const panel = page.locator('#push-panel');
+  await expect(panel.getByRole('heading',{name:'Notifications'})).toBeVisible();
+  await expect(panel).toContainText('Message text is never shown');
+  await context.grantPermissions(['notifications']);
+  await panel.getByRole('button',{name:'Turn on notifications'}).click();
+  // Headless browsers may have no push service; either way the page explains what happened and stays usable.
+  await expect(page.locator('#notice')).toContainText(/Notifications are on|couldn’t be turned on/);
+  const sw = await page.request.get('/sw.js');
+  expect(sw.ok()).toBe(true);
+  expect(await page.request.get('/offline.html').then((r)=>r.text())).toContain('You’re offline');
+  expect(errors).toEqual([]);
+});

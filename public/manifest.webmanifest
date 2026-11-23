@@ -1,15 +1,71 @@
 {
+  "id": "/",
   "name": "Nabora",
   "short_name": "Nabora",
-  "description": "Your neighborhood feed, marketplace, safety alerts and vetted local businesses.",
+  "description": "Your Cleveland neighborhood: local feed, events, safety alerts, farmers markets and vetted local businesses.",
+  "lang": "en-US",
+  "dir": "ltr",
   "start_url": "/#feed",
   "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#f6f5ee",
   "theme_color": "#194633",
+  "categories": [
+    "social",
+    "news",
+    "lifestyle"
+  ],
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Events",
+      "url": "/#events",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "url": "/#inbox",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Neighborhood guide",
+      "url": "/#guide",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
   ]
 }

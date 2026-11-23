@@ -48,6 +48,13 @@ export function mail(db,data) {
   });
 }
 
+export function push(db,data) {
+  return db.transaction(async (tx) => {
+    await tx.exec('set local role service_role');
+    return (await tx.query('select public.neighborhood_push($1) as value',[JSON.stringify(data)])).rows[0].value;
+  });
+}
+
 export function importEvents(db,data) {
   return db.transaction(async (tx) => {
     await tx.exec('set local role service_role');
@@ -82,6 +89,7 @@ export function fixtureAdapter(db, accounts) {
     publicEvents:(d) => publicEvents(db,d),
     publicFood:(d) => publicFood(db,d),
     mail:(d) => mail(db,d),
+    push:(d) => push(db,d),
     importEvents:(d) => importEvents(db,d),
     async rpc(token, op, data) {
       const actor = signedIn.get(token);

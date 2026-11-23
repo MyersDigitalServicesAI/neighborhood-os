@@ -58,6 +58,19 @@
           "value": "max-age=31536000"
         }
       ]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        },
+        {
+          "key": "Service-Worker-Allowed",
+          "value": "/"
+        }
+      ]
     }
   ],
   "rewrites": [
@@ -68,6 +81,10 @@
     {
       "source": "/food",
       "destination": "/api/core?action=food-page"
+    },
+    {
+      "source": "/.well-known/assetlinks.json",
+      "destination": "/api/core?action=assetlinks"
     }
   ]
 }

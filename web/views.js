@@ -185,7 +185,7 @@ export function feedView(posts, area, selected, filter, alerts = [], scope = '',
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
     heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
+    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+'<div id="push-nudge"></div>'+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
     scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (pinned.length ? '<section class="pinned" aria-label="Pinned posts"><h2 class="eyebrow">'+icon('pin',14)+'PINNED</h2><div class="cards">'+pinned.map(postCard).join('')+'</div></section>' : '')+
@@ -496,6 +496,7 @@ export function accountView(context) {
     '<section class="card panel"><h2>Your activity</h2><div class="inline-actions">'+action('My business profiles','manage','outline','shop')+
     action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+(context.staff==='admin'?action('People and invites','admin','outline','user'):'')+
     (context.hostAreas?.length?action('Run a check-in','host','outline','pin'):'')+'</div></section>'+
+    '<section class="card panel" id="push-panel" hidden></section>'+
     '<section class="card panel"><h2>Email</h2><p class="quiet">'+esc(context.email ?? '')+'</p>'+
       form('set_email_notices',hidden('on',context.emailNotices?'false':'true')+'<p class="small">'+(context.emailNotices ?
         'You get an email when someone replies to you, sends you a message, or posts a safety alert in your neighborhood.' :
@@ -776,4 +777,21 @@ export function eventsView(data,home) {
     (days.length ? days.map((d)=>'<section class="detail-section event-day"><h2>'+esc(d.label)+'</h2><div class="cards">'+d.items.map(card).join('')+'</div></section>').join('')+
       (events.length===60?'<p class="small">Showing the next 60 events. Pick a neighborhood or a shorter time to see more.</p>':'') :
       blank('calendar','No events here yet',when==='weekend'?'Nothing is posted for this weekend yet. Try the next 7 days.':'Be the first: post an event and neighbors across the city can find it.',action('Post an event','new/event','outline','plus')));
+}
+
+// Phone notifications for this device. `state` comes from web/push.js.
+const pushButton = (text,value,variant) => '<button class="button '+variant+'" type="button" data-push="'+value+'">'+esc(text)+'</button>';
+export function pushPanel(state) {
+  const body = {
+    on:['Notifications are on for this device. You’ll get a notice for replies, messages, RSVPs to your events and safety alerts in your neighborhood.',pushButton('Turn off on this device','off','outline')],
+    off:['Get a notice on this phone or computer when a neighbor replies, messages you, RSVPs to your event, or posts a safety alert. Message text is never shown in the notice.',pushButton('Turn on notifications','on','primary')],
+    blocked:['Notifications are blocked for Nabora in this browser. Allow them in your browser’s site settings for nabora.us, then come back here.',''],
+    install:['On iPhone or iPad, add Nabora to your home screen first: tap the Share button, then “Add to Home Screen.” Open Nabora from the home screen and turn on notifications here.',''],
+    unsupported:['This browser can’t show notifications. Try Chrome, Edge, Firefox or Safari.','']
+  }[state];
+  return body ? '<h2>Notifications</h2><p class="small">'+esc(body[0])+'</p>'+(body[1] ? '<div class="inline-actions">'+body[1]+'</div>' : '') : '';
+}
+export function pushNudge() {
+  return '<section class="card panel push-nudge"><h2>Know when neighbors reply</h2><p class="small">Get a notice on this device for replies, messages and safety alerts on your block. You can turn it off anytime.</p>'+
+    '<div class="inline-actions">'+pushButton('Turn on notifications','on','primary')+pushButton('Not now','later','ghost')+'</div></section>';
 }
