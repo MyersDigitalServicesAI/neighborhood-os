@@ -4,6 +4,10 @@ import './style.css';
 import * as view from './views.js';
 import { action, blank, esc, form, button, typeInfo } from './ui.js';
 import * as push from './push.js';
+import { inject } from '@vercel/analytics';
+
+// Initialize Vercel Web Analytics
+inject();
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
