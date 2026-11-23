@@ -150,3 +150,5 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .event-tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.event-tags .chip{font-size:.72rem;padding:3px 8px}
 @media (max-width:520px){.event-row{grid-template-columns:70px minmax(0,1fr);gap:10px}.event-row>svg{display:none}}
 .landing-events{font-weight:750;color:#254d39;padding:8px 10px}.public-note{margin:-4px 0 4px;display:flex;gap:6px;align-items:center}.public-note a{color:#254d39;font-weight:750;text-decoration:underline}
+.food-kind{margin:0 0 2px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.78rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--quiet)}
+.food-kind .chip{text-transform:none;letter-spacing:0}.food-when{font-weight:700;margin:0 0 6px}.food-badges{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}

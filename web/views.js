@@ -2,7 +2,7 @@ import { action, ago, avatar, back, blank, brand, button, categories, check, chi
   illustration, money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas } from './ui.js';
 
 export function landing(config) {
-  return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="landing-events" href="/events">Events</a><a class="desktop-link" href="#standards">Community standards</a>'+
+  return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="landing-events" href="/events">Events</a><a class="landing-events desktop-link" href="/food">Local food</a><a class="desktop-link" href="#standards">Community standards</a>'+
     action('Sign in','login','outline')+'</nav></header><main id="content" class="wrap landing">'+
     '<section class="hero"><div class="hero-copy">'+chip('Northeast Ohio pilot','pin','location')+
     '<h1>Where neighborhoods <em>become neighbors.</em></h1>'+
@@ -185,7 +185,7 @@ export function feedView(posts, area, selected, filter, alerts = [], scope = '',
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
     heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+
+    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+'<div id="push-nudge"></div>'+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
     scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (pinned.length ? '<section class="pinned" aria-label="Pinned posts"><h2 class="eyebrow">'+icon('pin',14)+'PINNED</h2><div class="cards">'+pinned.map(postCard).join('')+'</div></section>' : '')+
@@ -496,6 +496,7 @@ export function accountView(context) {
     '<section class="card panel"><h2>Your activity</h2><div class="inline-actions">'+action('My business profiles','manage','outline','shop')+
     action('My reviews and appeals','my-reviews','outline','star')+(context.staff?action('Moderation queue','moderation','outline','shield'):'')+(context.staff==='admin'?action('People and invites','admin','outline','user'):'')+
     (context.hostAreas?.length?action('Run a check-in','host','outline','pin'):'')+'</div></section>'+
+    '<section class="card panel" id="push-panel" hidden></section>'+
     '<section class="card panel"><h2>Email</h2><p class="quiet">'+esc(context.email ?? '')+'</p>'+
       form('set_email_notices',hidden('on',context.emailNotices?'false':'true')+'<p class="small">'+(context.emailNotices ?
         'You get an email when someone replies to you, sends you a message, or posts a safety alert in your neighborhood.' :
@@ -533,6 +534,12 @@ export function adminView(data,areas,created) {
       (live(i) ? '<div class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(inviteLink(i.code))+'">Copy link</button>'+
         form('revoke_invite',hidden('id',i.id)+button('Revoke','ghost'))+'</div>' : chip(i.revoked_at?'Revoked':i.uses>=i.max_uses?'Used up':'Expired','','muted'))+'</article>').join('')+'</div>' :
       '<p class="quiet">No invite links yet.</p>')+'</section>'+
+    '<section class="detail-section"><h2>Local food claims <small>'+(data.foodClaims?.length ?? 0)+'</small></h2><p class="quiet">Growers asking to manage their listing. Check what they wrote against the farm’s website or phone before approving.</p>'+
+    (data.foodClaims?.length ? '<div class="cards">'+data.foodClaims.map((c)=>'<article class="card panel admin-row"><div><strong>'+esc(c.listing)+'</strong><small>'+
+      esc((c.name || c.email)+' · '+c.email+' · '+(c.area ?? '')+' · '+date(c.created_at)+(c.owned?' · already managed by someone':''))+'</small><p class="small">'+esc(c.note)+'</p></div>'+
+      '<div class="inline-actions">'+form('decide_food_claim',hidden('id',c.id)+hidden('approve','true')+button('Approve','outline','check'))+
+      form('decide_food_claim',hidden('id',c.id)+hidden('approve','false')+button('Decline','ghost'))+'</div></article>').join('')+'</div>' :
+      '<p class="quiet">No claims waiting.</p>')+'</section>'+
     '<section class="detail-section"><h2>Pinned posts <small>'+(data.pins?.length ?? 0)+'</small></h2><p class="quiet">Pin a post from its page. Up to 3 per neighborhood.</p>'+
     (data.pins?.length ? '<div class="cards">'+data.pins.map((p)=>'<article class="card panel admin-row"><div><strong><a href="#post/'+ref(p.id)+'">'+esc(p.title)+'</a></strong><small>'+
       esc(p.area+' · pinned '+date(p.pinned_at)+(p.pinned_until?' · until '+date(p.pinned_until):' · until unpinned'))+'</small></div>'+
@@ -696,8 +703,34 @@ function guideFields(item = {}) {
     field('Address','address',{required:false,max:160,value:item.address ?? ''})+field('Phone','phone',{type:'tel',required:false,max:20,value:item.phone ?? ''})+
     field('Website (https://…)','url',{type:'url',required:false,max:300,value:item.url ?? ''})+field('Source','source',{required:false,max:160,value:item.source ?? ''});
 }
+const foodLabels = { market:'Farmers market', stand:'Farm stand', csa:'Farm share', farm:'Farm', garden:'Community garden' };
+const foodMap = (f) => f.address ? mapsLink(f.address+', '+(f.city || 'Cleveland')+', OH') : f.lat && f.lng ? mapsLink(f.lat+','+f.lng) : null;
+const toggle = (label,name,on) => hidden(name,'false')+'<label class="check"><input name="'+esc(name)+'" type="checkbox" value="true"'+(on?' checked':'')+'><span>'+esc(label)+'</span></label>';
+function foodItem(f,canEdit) {
+  const map = foodMap(f);
+  return '<article class="card guide-item food-item kind-'+esc(f.kind)+'"><p class="food-kind">'+esc(foodLabels[f.kind] ?? 'Local food')+
+    (f.claimed?' '+chip(f.mine?'You manage this':'Updated by the grower','check','verified'):'')+'</p><h3>'+esc(f.name)+'</h3>'+
+    (f.schedule||f.season?'<p class="food-when">'+esc([f.schedule,f.season].filter(Boolean).join(' · '))+'</p>':'')+
+    (f.snap||f.perks?'<p class="food-badges">'+(f.snap?chip('SNAP/EBT','','location'):'')+(f.perks?chip('Produce Perks','','location'):'')+'</p>':'')+
+    (f.fresh_now?'<p><strong>Fresh now:</strong> '+esc(f.fresh_now)+'</p>':'')+(f.detail?'<p>'+esc(f.detail)+'</p>':'')+
+    '<div class="guide-actions">'+(map?'<a class="act" href="'+map+'" target="_blank" rel="noopener">'+icon('pin',16)+'<span>'+esc(f.address || 'Map')+'</span></a>':'')+
+    (f.phone?'<a class="act" href="tel:'+esc(f.phone.replace(/[^0-9+]/g,''))+'">'+icon('phone',16)+'<span>'+esc(f.phone)+'</span></a>':'')+
+    (url(f.url)?'<a class="act" href="'+url(f.url)+'" target="_blank" rel="noopener">'+icon('external',16)+'<span>Website</span></a>':'')+'</div>'+
+    (f.mine || canEdit ? '<details class="guide-edit"><summary>Update this listing</summary>'+form('save_food',hidden('id',f.id)+
+        field('What’s fresh now? (optional)','fresh_now',{type:'textarea',required:false,max:280,value:f.fresh_now ?? '',placeholder:'For example, first sweet corn and heirloom tomatoes this Saturday'})+
+        field('Days and hours','schedule',{required:false,max:300,value:f.schedule ?? ''})+field('Season','season',{required:false,max:160,value:f.season ?? ''})+
+        field('About','detail',{type:'textarea',required:false,max:900,value:f.detail ?? ''})+
+        field('Website (https://…)','url',{type:'url',required:false,max:300,value:f.url ?? ''})+field('Phone','phone',{type:'tel',required:false,max:20,value:f.phone ?? ''})+
+        toggle('Takes SNAP/EBT','snap',f.snap)+toggle('Takes Produce Perks','perks',f.perks)+button('Save listing','outline'))+'</details>'
+      : f.claimed ? '' : f.claim_pending ? '<p class="small quiet">Your claim is waiting for review.</p>'
+      : '<details class="guide-edit"><summary>Is this yours? Claim it</summary><p class="small">Claim your listing to post your hours, what’s fresh this week and how to reach you. An admin checks each claim first.</p>'+
+        form('claim_food',hidden('id',f.id)+field('How are you connected to '+f.name+'?','note',{type:'textarea',min:10,max:600,placeholder:'Your role, plus a website, social account or phone number we can check'})+
+          button('Send claim','outline'))+'</details>')+
+    '<p class="guide-source">'+(f.claimed?'Kept up to date by the grower':'Source: '+esc(f.source.replace(/^https:\/\/(www\.)?([^/]+).*$/,'$2')))+'</p></article>';
+}
 export function guideView(guide,areas,home,canEdit = false) {
   const {area,items} = guide;
+  const food = guide.food ?? [];
   const cleveland = areas.filter((a)=>a.region===area.region);
   const picker = form('guide_area',select('See another neighborhood','area',cleveland.map((a)=>[a.id,a.name+(a.id===home?' (yours)':'')]),area.id)+button('Open guide','outline'));
   const sections = guideSections.map(([key,title,note,image])=>{
@@ -705,11 +738,15 @@ export function guideView(guide,areas,home,canEdit = false) {
     return list.length ? '<section class="detail-section guide-section" id="guide-'+key+'"><h2>'+icon(image,20)+esc(title)+' <small>'+list.length+'</small></h2><p class="quiet">'+esc(note)+'</p>'+
       '<div class="cards">'+list.map((i)=>guideItem(i,canEdit)).join('')+'</div></section>' : '';
   }).join('');
+  const foodSection = food.length ? '<section class="detail-section guide-section" id="guide-food"><h2>'+icon('leaf',20)+'Local food <small>'+food.length+'</small></h2>'+
+    '<p class="quiet">Farmers markets, farm stands, urban farms and community gardens. Buying here keeps money with growers down the road. <a href="/food">See all of Cuyahoga County</a>.</p>'+
+    '<div class="cards">'+food.map((f)=>foodItem(f,canEdit)).join('')+'</div></section>' : '';
   const jump = '<nav class="tabs guide-jump" aria-label="Guide sections">'+guideSections.filter(([key])=>items.some((i)=>i.section===key))
-    .map(([key,title])=>'<button type="button" data-jump="guide-'+key+'">'+esc(title)+'</button>').join('')+'</nav>';
+    .map(([key,title])=>'<button type="button" data-jump="guide-'+key+'">'+esc(title)+'</button>').join('')+
+    (food.length?'<button type="button" data-jump="guide-food">Local food</button>':'')+'</nav>';
   return heading('NEIGHBORHOOD GUIDE',area.name,area.id===home?'Everything that makes your neighborhood work, in one place.':'The guide for '+area.name+'.')+
     '<section class="card panel guide-picker">'+picker+'</section>'+
-    (items.length ? jump+sections+'<p class="small guide-note">Built from official City of Cleveland, Cleveland City Council, Cleveland Public Library and Greater Cleveland Food Bank data. Spot something out of date? Tell us from the Account page.</p>' :
+    (items.length ? jump+sections+foodSection+'<p class="small guide-note">Built from official City of Cleveland, Cleveland City Council, Cleveland Public Library and Greater Cleveland Food Bank data. Spot something out of date? Tell us from the Account page.</p>' :
       blank('book','This guide is coming soon',area.region==='Cleveland'?'We are still putting this neighborhood together.':'Guides for the suburbs are next on our list.'))+
     (canEdit?'<details class="card panel guide-add"><summary>'+icon('plus',16)+' Add a listing to '+esc(area.name)+'</summary>'+
       form('save_guide_item',hidden('area',area.id)+select('Section','section',guideSections.map(([key,title])=>[key,title]))+guideFields()+button('Add to guide','primary'))+'</details>':'');
@@ -740,4 +777,21 @@ export function eventsView(data,home) {
     (days.length ? days.map((d)=>'<section class="detail-section event-day"><h2>'+esc(d.label)+'</h2><div class="cards">'+d.items.map(card).join('')+'</div></section>').join('')+
       (events.length===60?'<p class="small">Showing the next 60 events. Pick a neighborhood or a shorter time to see more.</p>':'') :
       blank('calendar','No events here yet',when==='weekend'?'Nothing is posted for this weekend yet. Try the next 7 days.':'Be the first: post an event and neighbors across the city can find it.',action('Post an event','new/event','outline','plus')));
+}
+
+// Phone notifications for this device. `state` comes from web/push.js.
+const pushButton = (text,value,variant) => '<button class="button '+variant+'" type="button" data-push="'+value+'">'+esc(text)+'</button>';
+export function pushPanel(state) {
+  const body = {
+    on:['Notifications are on for this device. You’ll get a notice for replies, messages, RSVPs to your events and safety alerts in your neighborhood.',pushButton('Turn off on this device','off','outline')],
+    off:['Get a notice on this phone or computer when a neighbor replies, messages you, RSVPs to your event, or posts a safety alert. Message text is never shown in the notice.',pushButton('Turn on notifications','on','primary')],
+    blocked:['Notifications are blocked for Nabora in this browser. Allow them in your browser’s site settings for nabora.us, then come back here.',''],
+    install:['On iPhone or iPad, add Nabora to your home screen first: tap the Share button, then “Add to Home Screen.” Open Nabora from the home screen and turn on notifications here.',''],
+    unsupported:['This browser can’t show notifications. Try Chrome, Edge, Firefox or Safari.','']
+  }[state];
+  return body ? '<h2>Notifications</h2><p class="small">'+esc(body[0])+'</p>'+(body[1] ? '<div class="inline-actions">'+body[1]+'</div>' : '') : '';
+}
+export function pushNudge() {
+  return '<section class="card panel push-nudge"><h2>Know when neighbors reply</h2><p class="small">Get a notice on this device for replies, messages and safety alerts on your block. You can turn it off anytime.</p>'+
+    '<div class="inline-actions">'+pushButton('Turn on notifications','on','primary')+pushButton('Not now','later','ghost')+'</div></section>';
 }

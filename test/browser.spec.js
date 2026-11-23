@@ -525,3 +525,83 @@ test('signed-out visitors browse citywide events at /events, without poster name
   await expect(page).toHaveURL(/#signup$/);
   await expect(page.locator('.auth-card')).toBeVisible();
 });
+
+test('a grower claims their market in the guide, an admin approves it, and the update shows on the public food page',async({page})=>{
+  const errors = [];
+  page.on('pageerror',(error)=>errors.push(error.message));
+  await page.setViewportSize({width:390,height:844});
+  await login(page,'ava');
+  await page.goto('/#guide');
+  await page.getByRole('button',{name:'Local food'}).click();
+  const market = page.locator('.food-item',{hasText:'Ziggy’s Produce and Farm'});
+  await expect(market).toContainText('SNAP/EBT');
+  await market.getByText('Is this yours? Claim it').click();
+  await market.getByLabel(/How are you connected/).fill('I run the produce stand. Our shop phone is listed on Google.');
+  await market.getByRole('button',{name:'Send claim'}).click();
+  await expect(page.getByText(/Claim sent/)).toBeVisible();
+  await expect(page.locator('.food-item',{hasText:'Ziggy’s Produce and Farm'})).toContainText('waiting for review');
+  await page.screenshot({path:'test-results/guide-food-mobile.png',fullPage:false});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await logout(page);
+
+  await login(page,'rina');
+  await page.goto('/#admin');
+  const claim = page.locator('.admin-row',{hasText:'Ziggy’s Produce and Farm'});
+  await expect(claim).toContainText('I run the produce stand');
+  await claim.getByRole('button',{name:'Approve'}).click();
+  await expect(page.getByText('Claim decision recorded.')).toBeVisible();
+  await logout(page);
+
+  await login(page,'ava');
+  await page.goto('/#guide');
+  const mine = page.locator('.food-item',{hasText:'Ziggy’s Produce and Farm'});
+  await expect(mine).toContainText('You manage this');
+  await mine.getByText('Update this listing').click();
+  await mine.getByLabel(/What’s fresh now/).fill('Honeycrisp apples and pumpkins in this week.');
+  await mine.getByRole('button',{name:'Save listing'}).click();
+  await expect(page.getByText(/Listing updated/)).toBeVisible();
+  await logout(page);
+
+  await page.goto('/food?area=old-brooklyn');
+  await expect(page.getByRole('heading',{name:'Local food in Old Brooklyn',level:1})).toBeVisible();
+  const listing = page.locator('article.listing',{hasText:'Ziggy’s Produce and Farm'});
+  await expect(listing).toContainText('Honeycrisp apples and pumpkins in this week.');
+  await expect(listing).toContainText('Updated by the grower');
+  await expect(page.locator('main')).not.toContainText('Ava');
+  await page.screenshot({path:'test-results/public-food-mobile.png',fullPage:false});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.goto('/food');
+  await page.getByRole('link',{name:/^Community gardens/}).click();
+  await expect(page).toHaveURL(/kind=garden/);
+  await expect(page.getByRole('heading',{name:/^Community gardens in Cleveland/,level:1})).toBeVisible();
+  await page.getByLabel('Takes SNAP/EBT').check();
+  await page.getByRole('button',{name:'Show'}).click();
+  await expect(page).toHaveURL(/snap=1/);
+  expect(errors).toEqual([]);
+});
+
+test('neighbors are offered notifications once on the feed, and can manage them on their account page',async({page,context})=>{
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'luis');
+  const nudge = page.locator('.push-nudge');
+  await expect(nudge.getByRole('heading',{name:'Know when neighbors reply'})).toBeVisible();
+  await nudge.getByRole('button',{name:'Not now'}).click();
+  await expect(nudge).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'Your neighborhood'})).toBeVisible();
+  await expect(page.locator('.push-nudge')).toHaveCount(0);
+
+  await page.goto('/#account');
+  const panel = page.locator('#push-panel');
+  await expect(panel.getByRole('heading',{name:'Notifications'})).toBeVisible();
+  await expect(panel).toContainText('Message text is never shown');
+  await context.grantPermissions(['notifications']);
+  await panel.getByRole('button',{name:'Turn on notifications'}).click();
+  // Headless browsers may have no push service; either way the page explains what happened and stays usable.
+  await expect(page.locator('#notice')).toContainText(/Notifications are on|couldn’t be turned on/);
+  const sw = await page.request.get('/sw.js');
+  expect(sw.ok()).toBe(true);
+  expect(await page.request.get('/offline.html').then((r)=>r.text())).toContain('You’re offline');
+  expect(errors).toEqual([]);
+});

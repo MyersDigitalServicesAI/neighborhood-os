@@ -102,7 +102,7 @@ test('account deletion signs the browser out, and the daily job needs its secret
   assert.equal((await get({})).statusCode,401);
   assert.equal((await get({authorization:'Bearer wrong'})).statusCode,401);
   const ok = await get({authorization:'Bearer s3cret'});
-  assert.deepEqual([ok.statusCode,ok.body],[200,{sent:0,failed:0,purged:2}]);
+  assert.deepEqual([ok.statusCode,ok.body],[200,{sent:0,failed:0,pushed:0,pushFailed:0,purged:2}]);
 });
 
 test('checkout charges the exact vetting price and labels the card statement NABORA', async () => {

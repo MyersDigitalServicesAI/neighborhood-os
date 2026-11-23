@@ -1,8 +1,10 @@
 import { billingAdapter } from './billing.js';
 import { Problem, supabaseAdapter } from './supabase.js';
 import { deliver, mailerAdapter } from './mail.js';
+import { deliverPush, pushAdapter, pushHosts } from './push.js';
 import { gatherEvents } from './events.js';
 import { eventsPage } from './events-page.js';
+import { foodPage, foodKinds } from './food-page.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -10,9 +12,12 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'delete_post','delete_reply','react','rsvp','vote','upload_image','notifications','read_notifications','search','profile','update_profile',
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
-  'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events']);
+  'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events',
+  'claim_food','save_food','decide_food_claim','save_push','remove_push']);
 // Operations that can queue an email; the queue is drained right after them.
 const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
+// Operations that can queue a phone notification; those are sent right after them too.
+const pushOperations = new Set(['reply','message','create_post','rsvp']);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const maxBytes = 16000;
 const maxUpload = 420000;
@@ -45,7 +50,7 @@ function cookies(req) {
 }
 
 export function makeHandler({ env = globalThis.process?.env ?? {}, database = supabaseAdapter(env), billing = billingAdapter(env,database),
-  local = false, mailer = mailerAdapter(env), gather = () => gatherEvents() } = {}) {
+  local = false, mailer = mailerAdapter(env), pusher = pushAdapter(env), gather = () => gatherEvents() } = {}) {
   const prefix = local ? 'nh_' : '__Host-nh_';
   function cookie(name,value,maxAge) {
     return prefix + name + '=' + value + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + (local ? '' : '; Secure');
@@ -73,7 +78,16 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
       const saved = cookies(req);
       const access = saved[prefix+'access'];
       if (req.method === 'GET' && action === 'config') {
-        return reply(res,200,{ configured: database.configured, signups: env.OPEN_SIGNUPS === 'true', billing: billing.enabled, email: mailer.enabled, local });
+        return reply(res,200,{ configured: database.configured, signups: env.OPEN_SIGNUPS === 'true', billing: billing.enabled, email: mailer.enabled, push: pusher.publicKey, local });
+      }
+      if (req.method === 'GET' && action === 'assetlinks') {
+        // Digital Asset Links for the Android app: proves nabora.us and the Play Store app belong together, so the app
+        // opens full screen without a browser bar. ANDROID_CERT_SHA256 lists the signing key fingerprints, comma-separated.
+        const prints = String(env.ANDROID_CERT_SHA256 ?? '').split(',').map((v) => v.trim().toUpperCase())
+          .filter((v) => /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(v));
+        res.setHeader('Cache-Control','public, max-age=3600');
+        return reply(res,200,prints.length ? [{ relation:['delegate_permission/common.handle_all_urls'],
+          target:{ namespace:'android_app', package_name:env.ANDROID_PACKAGE || 'us.nabora.app', sha256_cert_fingerprints:prints } }] : []);
       }
       if (req.method === 'GET' && action === 'counts') {
         const counts = await database.counts();
@@ -96,20 +110,35 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         res.setHeader('Content-Type','text/html; charset=utf-8');
         return res.end(eventsPage(data,(env.APP_ORIGIN || base).replace(/\/$/,'')));
       }
+      if (req.method === 'GET' && (action === 'public-food' || action === 'food-page')) {
+        // Public: local food listings for anyone. Cached briefly at the edge.
+        const kind = foodKinds.some(([k])=>k===url.searchParams.get('kind')) ? url.searchParams.get('kind') : '';
+        const place = /^[a-z0-9-]{2,40}$/.test(url.searchParams.get('area') ?? '') ? url.searchParams.get('area') : '';
+        const data = await database.publicFood({ kind,area:place,snap:url.searchParams.get('snap') === '1' });
+        res.statusCode = 200;
+        res.setHeader('Cache-Control','public, max-age=300, s-maxage=600');
+        if (action === 'public-food') {
+          res.setHeader('Content-Type','application/json; charset=utf-8');
+          return res.end(JSON.stringify(data));
+        }
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        return res.end(foodPage(data,(env.APP_ORIGIN || base).replace(/\/$/,'')));
+      }
       if (req.method === 'GET' && action === 'deliver') {
         // Daily job: send anything still queued and delete stale address-verification requests.
         if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
         if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
         const purged = await database.mail({ op:'purge' });
-        const mail = await deliver(database,mailer,{ budget:20000,limit:25 });
-        return reply(res,200,{ ...mail,...purged });
+        const mail = await deliver(database,mailer,{ budget:15000,limit:25 });
+        const push = await deliverPush(database,pusher,{ budget:10000,limit:50 });
+        return reply(res,200,{ ...mail,...push,...purged });
       }
       if (req.method === 'GET' && action === 'events') {
         // Weekly job: post upcoming library events and ward community meetings into each neighborhood.
         if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
         if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
         const { events: found, failures } = await gather();
-        const result = await database.importEvents({ events:found, limit:45 });
+        const result = await database.importEvents({ events:found, limit:100 });
         return reply(res,200,{ ...result,found:found.length,failures });
       }
       if (req.method === 'GET' && action === 'callback') {
@@ -196,8 +225,13 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         return reply(res,200,result);
       }
       if (!appOperations.has(action)) throw new Problem(404,'Action unavailable.');
+      if (action === 'save_push') {
+        if (!pusher.enabled) throw new Problem(503,'Notifications are not available yet.');
+        if (typeof body.endpoint !== 'string' || !pushHosts.test(body.endpoint)) throw new Problem(400,'This browser’s push service isn’t supported.');
+      }
       const result = await database.rpc(access,action,body);
-      if (mailOperations.has(action) && mailer.enabled) await deliver(database,mailer).catch(() => {});
+      await Promise.all([mailOperations.has(action) && mailer.enabled ? deliver(database,mailer).catch(() => {}) : null,
+        pushOperations.has(action) && pusher.enabled ? deliverPush(database,pusher).catch(() => {}) : null]);
       return reply(res,200,result);
     } catch (error) {
       if (error instanceof Problem) return reply(res,error.status,{ error:error.message });

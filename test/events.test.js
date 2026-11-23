@@ -56,11 +56,13 @@ test('import places events in their neighborhood, from the owner, once, and with
     ...[94,95,96].map((id)=>({ ...base, branch:'South Brooklyn', source_url:'https://cpl.libcal.com/event/'+id, title:'Event '+id, starts_at:new Date(Date.now()+4*86400000).toISOString() }))
   ];
   const first = await importEvents(db,{ events });
-  assert.equal(first.posted,3,'stops at 3 new events for Old Brooklyn');
-  assert.deepEqual(first.areas,{'old-brooklyn':3});
-  const rows = (await db.query("select author_id,area_id,reach,title,source_url from neighborhood.posts where source_url is not null order by event_at")).rows;
-  assert.deepEqual(rows.map((r)=>r.title),['Ornament craft','Ward 4 Community Meeting','Event 94']);
-  assert.ok(rows.every((r)=>r.author_id===actors.rina && r.reach==='region' && r.area_id==='old-brooklyn'));
+  assert.equal(first.areas['old-brooklyn'],3,'stops at 3 new events for Old Brooklyn');
+  assert.equal(first.posted,5,'the 2 extra library events go next door');
+  const rows = (await db.query("select author_id,area_id,reach,title,source_url from neighborhood.posts where source_url is not null order by event_at,title")).rows;
+  const home = rows.filter((r)=>r.area_id==='old-brooklyn');
+  assert.deepEqual(home.map((r)=>r.title),['Ornament craft','Ward 4 Community Meeting','Event 94']);
+  assert.deepEqual(rows.filter((r)=>r.area_id!=='old-brooklyn').map((r)=>r.title),['Event 95','Event 96']);
+  assert.ok(rows.every((r)=>r.author_id===actors.rina && r.reach==='region'));
   const again = await importEvents(db,{ events });
   assert.equal(again.posted,0,'never posts the same event twice, and Old Brooklyn now has 4 coming up');
   assert.ok(again.empty.includes('Tremont'));
@@ -77,7 +79,7 @@ test('the weekly job needs its secret and reports what it posted',async()=>{
   const ok = await run({ authorization:'Bearer s3cret' });
   assert.equal(ok.statusCode,200);
   assert.deepEqual(JSON.parse(ok.body),{ posted:1, skipped:0, areas:{}, empty:[], found:1, failures:['council'] });
-  assert.equal(calls[0].limit,45);
+  assert.equal(calls[0].limit,100);
 });
 
 test('gathering survives a calendar that is down',async()=>{
@@ -85,4 +87,24 @@ test('gathering survives a calendar that is down',async()=>{
   const { events, failures } = await gatherEvents(request);
   assert.equal(events.length,1);
   assert.deepEqual(failures,['council']);
+});
+
+test('a full branch neighborhood passes its extra library events to the emptiest bordering neighborhood without a branch, once each',async()=>{
+  const at = new Date(Date.now()+5*86400000).toISOString();
+  const events = [101,102,103,104,105,106].map((id)=>({ branch:'Cleveland Public Library · Harvard-Lee branch', source_url:'https://cpl.libcal.com/event/'+id,
+    title:'Harvard-Lee event '+id, body:'Details', place:'Cleveland Public Library, Harvard-Lee branch', starts_at:at }));
+  const result = await importEvents(db,{ events });
+  assert.equal(result.posted,6);
+  assert.equal(result.areas['lee-harvard'],3,'the branch neighborhood fills first');
+  const rows = (await db.query("select area_id,source_url from neighborhood.posts where source_url like 'https://cpl.libcal.com/event/10_%' order by source_url")).rows;
+  assert.equal(rows.length,6,'each event is posted once');
+  assert.ok(rows.every((r)=>!r.source_url.includes('#')));
+  const borrowers = [...new Set(rows.map((r)=>r.area_id).filter((a)=>a!=='lee-harvard'))];
+  assert.ok(borrowers.includes('lee-seville'));
+  for (const area of borrowers) {
+    const { rows:[link] } = await db.query("select a.region,exists(select 1 from neighborhood.guide_items g where g.area_id = $1 and g.kind = 'library') branch,"+
+      " exists(select 1 from neighborhood.area_links l where l.area_id = 'lee-harvard' and l.nearby_id = $1) next_door from neighborhood.areas a where a.id = $1",[area]);
+    assert.deepEqual(link,{ region:'Cleveland', branch:false, next_door:true },area);
+  }
+  assert.equal((await importEvents(db,{ events })).posted,0,'never posted again');
 });

@@ -3,6 +3,7 @@ import '@fontsource-variable/dm-sans/wght.css';
 import './style.css';
 import * as view from './views.js';
 import { action, blank, esc, form, button, typeInfo } from './ui.js';
+import * as push from './push.js';
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
@@ -359,6 +360,7 @@ async function render() {
     if (mine && panel) panel.innerHTML = view.mapPanel(mine,'home',summary[mine.id]);
   }
   for (const node of app.querySelectorAll('form[data-action="decide_vetting"]')) setEvidence(node);
+  if (key === 'account' || page === 'feed') await showPush(current);
   if (key === 'host-session') {
     const root = document.querySelector('#qr-root');
     if (root) (await import('./qr.js')).drawQr(root,root.dataset.link);
@@ -367,6 +369,34 @@ async function render() {
   }
 }
 
+// Fills the notification switch on Account and, once, a gentle nudge at the top of the feed.
+async function showPush(current) {
+  const panel = document.querySelector('#push-panel');
+  const nudge = document.querySelector('#push-nudge');
+  if (!config.push || (!panel && !nudge)) return;
+  const state = await push.state().catch(()=>'unsupported');
+  if (current !== version) return;
+  if (panel) {
+    panel.innerHTML = view.pushPanel(state);
+    panel.hidden = !panel.innerHTML;
+  }
+  if (nudge && state === 'off' && Notification.permission === 'default' && !push.snoozed()) nudge.innerHTML = view.pushNudge();
+}
+async function setPush(choice) {
+  if (choice === 'later') {
+    push.snooze();
+    document.querySelector('#push-nudge')?.replaceChildren();
+    return;
+  }
+  const state = choice === 'on' ? await push.enable(config.push,(d)=>rpc('save_push',d)) : await push.disable((d)=>rpc('remove_push',d));
+  push.snooze();
+  if (choice === 'on') show(state === 'on' ? 'Notifications are on for this device.' :
+    state === 'blocked' ? 'Notifications are blocked. Allow them in your browser’s site settings.' : 'Notifications stay off.');
+  else show('Notifications are off for this device.');
+  document.querySelector('#push-nudge')?.replaceChildren();
+  const panel = document.querySelector('#push-panel');
+  if (panel) panel.innerHTML = view.pushPanel(state);
+}
 const messages = {
   delete_reply:'Reply deleted.',update_profile:'Profile saved.',request_residency:'Postcard requested.',cancel_residency:'Verification withdrawn and address deleted.',
   confirm_residency:'Address verified. Your address record has been deleted.',decide_residency:'Recorded. The address has been erased.',vote:'Vote recorded.',
@@ -374,7 +404,7 @@ const messages = {
   submit_review:'Review sent for human moderation.', report_review:'Report sent to staff.', appeal:'Appeal submitted.',
   decide_review:'Review decision recorded.', decide_appeal:'Appeal decision recorded.', decide_vetting:'Vetting decision recorded.',
   update_business:'Business profile saved.', block:'Messages blocked.', unblock:'Messages unblocked.',
-  set_vetter:'Vetting access updated.', waive_fee:'Fee waived. The business still needs a vetting approval from other staff.', unvouch:'Vouch withdrawn.', set_host:'Hosts updated.', pin_post:'Post pinned to the top of the feed.', save_guide_item:'Guide updated.', hide_guide_item:'Removed from the guide.', unpin_post:'Post unpinned.', end_checkin:'Check-in ended. The code no longer works.', undo_checkin:'Verification undone.'
+  set_vetter:'Vetting access updated.', waive_fee:'Fee waived. The business still needs a vetting approval from other staff.', unvouch:'Vouch withdrawn.', set_host:'Hosts updated.', pin_post:'Post pinned to the top of the feed.', save_guide_item:'Guide updated.', claim_food:'Claim sent. An admin will check it, usually within a day.', save_food:'Listing updated. Neighbors see it right away.', decide_food_claim:'Claim decision recorded.', hide_guide_item:'Removed from the guide.', unpin_post:'Post unpinned.', end_checkin:'Check-in ended. The code no longer works.', undo_checkin:'Verification undone.'
 };
 const pages = {
   'feed-more': {op:'feed',target:'feed-results',render:view.postCard,size:25},
@@ -427,6 +457,8 @@ async function submit(operation,data,element) {
     return go('');
   }
   if (operation === 'logout') {
+    // A shared phone should stop getting the signed-out person's notices.
+    if (config.push) await push.disable((d)=>rpc('remove_push',d)).catch(()=>{});
     await raw('logout',{});
     context = null;
     return go('');
@@ -517,6 +549,14 @@ async function submit(operation,data,element) {
 }
 
 app.addEventListener('click',async (event)=>{
+  const toggle = event.target.closest('[data-push]');
+  if (toggle) {
+    toggle.disabled = true;
+    try { await setPush(toggle.dataset.push); }
+    catch (error) { show(error?.message && error.status ? error.message : 'Notifications couldn’t be turned on. Try again.'); }
+    finally { toggle.disabled = false; }
+    return;
+  }
   const copy = event.target.closest('[data-copy]');
   if (copy) {
     try { await navigator.clipboard.writeText(copy.dataset.copy); show(copy.dataset.copied ?? 'Invite link copied.'); }
@@ -577,11 +617,20 @@ document.querySelector('.skip').addEventListener('click',(event)=>{
   content.tabIndex = -1;
   content.focus();
 });
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message',async (event)=>{
+    const target = event.data?.open;
+    if (typeof target === 'string' && target.startsWith(location.origin+'/')) location.assign(target);
+    // The browser replaced this device's push address: save the new one.
+    if (event.data?.resubscribe && config.push && context?.member) await push.enable(config.push,(d)=>rpc('save_push',d)).catch(()=>{});
+  });
+}
 async function start() {
   app.innerHTML = view.landing(config);
   try {
     config = await raw('config');
     if (config.configured) await sync().catch(()=>{ context = null; });
+    if ('serviceWorker' in navigator && !config.local) navigator.serviceWorker.register('/sw.js',{ scope:'/' }).catch(()=>{});
   } catch { /* The public introduction is available while account access recovers. */ }
   await render();
 }
