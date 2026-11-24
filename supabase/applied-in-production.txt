@@ -1,0 +1,27 @@
+# Database updates (files in supabase/migrations) that have been applied to the production database.
+# Add a file here only after it has run in production and been checked. The "Database updates applied"
+# check fails while any migration is missing from this list, so a pull request cannot be merged too early.
+20261110132809_neighborhood_core.sql
+20261110134813_supporting_indexes.sql
+20261110135534_train_review_screen.sql
+20261111090000_community_platform.sql
+20261112200000_cleveland_neighborhoods.sql
+20261113090000_nearby_and_regional_feeds.sql
+20261114090000_map_areas.sql
+20261114100000_map_summary.sql
+20261117090000_public_counts.sql
+20261118090000_admin_invites_mail.sql
+20261119090000_vouching_and_checkins.sql
+20261120090000_waive_vetting_fee.sql
+20261121090000_owner_vetting_and_founders.sql
+20261122090000_pinned_posts.sql
+20261123090000_neighborhood_guide.sql
+20261123100000_guide_cleveland.sql
+20261124090000_event_import.sql
+20261125090000_citywide_events.sql
+20261126090000_public_events.sql
+20261127090000_nearby_branch_events.sql
+20261128090000_local_food.sql
+20261128090100_food_listings_data.sql
+20261129090000_push_notifications.sql
+20261130090000_flyers.sql
