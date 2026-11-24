@@ -25,3 +25,4 @@
 20261128090100_food_listings_data.sql
 20261129090000_push_notifications.sql
 20261130090000_flyers.sql
+20261201090000_weekly_digest.sql

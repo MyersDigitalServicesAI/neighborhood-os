@@ -1,6 +1,7 @@
 import { billingAdapter } from './billing.js';
 import { Problem, supabaseAdapter } from './supabase.js';
 import { deliver, mailerAdapter } from './mail.js';
+import { unsubscribePage } from './unsubscribe-page.js';
 import { deliverPush, pushAdapter, pushHosts } from './push.js';
 import { gatherEvents } from './events.js';
 import { eventsPage } from './events-page.js';
@@ -13,7 +14,7 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
   'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events',
-  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer']);
+  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest']);
 // Operations that can queue an email; the queue is drained right after them.
 const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
 // Operations that can queue a phone notification; those are sent right after them too.
@@ -139,9 +140,12 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
         if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
         const purged = await database.mail({ op:'purge' });
-        const mail = await deliver(database,mailer,{ budget:15000,limit:25 });
+        // Thursday evenings (Cleveland time) also queue the weekly digest. ?digest=1 queues it on another day.
+        const thursday = new Intl.DateTimeFormat('en-US',{ weekday:'short',timeZone:'America/New_York' }).format(new Date()) === 'Thu';
+        const digests = mailer.enabled && (thursday || url.searchParams.get('digest') === '1') ? await database.mail({ op:'digest' }) : {};
+        const mail = await deliver(database,mailer,{ budget:thursday ? 45000 : 15000,limit:25 });
         const push = await deliverPush(database,pusher,{ budget:10000,limit:50 });
-        return reply(res,200,{ ...mail,...push,...purged });
+        return reply(res,200,{ ...mail,...push,...purged,...digests });
       }
       if (req.method === 'GET' && action === 'events') {
         // Weekly job: post upcoming library events and ward community meetings into each neighborhood.
@@ -176,6 +180,21 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         res.setHeader('Cache-Control','private, max-age=86400, immutable');
         res.setHeader('Content-Disposition','inline');
         return res.end(Uint8Array.from(atob(photo.data.replace(/\s/g,'')),(c)=>c.charCodeAt(0)));
+      }
+      if (action === 'unsubscribe') {
+        // The digest's one-click unsubscribe. Opening the link shows a button (so link scanners in mail filters can't
+        // unsubscribe anyone by just visiting it); the button, or Gmail's one-click POST, turns the digest off.
+        const token = url.searchParams.get('t') ?? '';
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        if (req.method === 'POST') {
+          if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
+          const done = await database.mail({ op:'unsubscribe',token });
+          res.statusCode = 200;
+          return res.end(unsubscribePage(done?.ok ? 'done' : 'invalid',''));
+        }
+        if (req.method !== 'GET') throw new Problem(405,'Method unavailable.');
+        res.statusCode = 200;
+        return res.end(unsubscribePage(idPattern.test(token) ? 'ask' : 'invalid',token));
       }
       if (req.method !== 'POST') throw new Problem(405,'Method unavailable.');
       if (action === 'stripe-webhook') {

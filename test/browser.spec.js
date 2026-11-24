@@ -643,3 +643,14 @@ test('an admin prints a flyer whose QR link lets a new neighbor in, and an autho
   await expect(page.getByText('You’ve been invited.',{exact:false})).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('a neighbor turns the weekly digest off and back on from their account page',async({page})=>{
+  await login(page,'jamal');
+  await page.goto('/#account');
+  await expect(page.getByText('Every Thursday evening you get',{exact:false})).toBeVisible();
+  await page.getByRole('button',{name:'Turn off the weekly digest'}).click();
+  await expect(page.getByText('The weekly digest is off.')).toBeVisible();
+  await expect(page.getByRole('button',{name:'Turn off email notices'})).toBeVisible();
+  await page.getByRole('button',{name:'Turn on the weekly digest'}).click();
+  await expect(page.getByRole('button',{name:'Turn off the weekly digest'})).toBeVisible();
+});
