@@ -654,3 +654,13 @@ test('a neighbor turns the weekly digest off and back on from their account page
   await page.getByRole('button',{name:'Turn on the weekly digest'}).click();
   await expect(page.getByRole('button',{name:'Turn off the weekly digest'})).toBeVisible();
 });
+
+test('signed-out visitors find holiday tree lots and farms at /trees, and it fits a phone',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/trees');
+  await expect(page.getByRole('heading',{name:'Where to get a Christmas tree in Cleveland'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Sugar Pines Farm'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Join free and share it'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({path:'test-results/trees-mobile.png',fullPage:true});
+});

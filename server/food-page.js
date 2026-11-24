@@ -70,5 +70,5 @@ export function foodPage(data, origin) {
     (groups || '<p class="empty">Nothing matches yet. Try “All”, or another neighborhood.</p>')+
     '<aside class="cta"><h2>Do you grow or sell local food?</h2><p>Claim your free listing on Nabora to post your market days, what’s fresh this week, and how to reach you. Neighbors in your area see it in their neighborhood guide.</p><a class="join" href="/#signup">Join and claim your listing</a></aside>'+
     '<p class="sources">Listings come from the Ohio Department of Job and Family Services 2026 Farmers’ Market Directory, Signal Cleveland, the City of Cleveland and OSU Extension’s Cleveland Food System Map, and the National Park Service. Hours change with the seasons, so check before you go.</p>'+
-    '</main><footer><a href="/">Nabora</a> · <a href="/events">Events</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
+    '</main><footer><a href="/">Nabora</a> · <a href="/events">Events</a> · <a href="/trees">Holiday trees</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
 }
