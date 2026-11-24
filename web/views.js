@@ -502,7 +502,10 @@ export function accountView(context) {
       form('set_email_notices',hidden('on',context.emailNotices?'false':'true')+'<p class="small">'+(context.emailNotices ?
         'You get an email when someone replies to you, sends you a message, or posts a safety alert in your neighborhood.' :
         'Email notices are off. You will only see replies, messages and alerts in the app.')+'</p>'+
-        button(context.emailNotices?'Turn off email notices':'Turn on email notices','outline'))+'</section>'+
+        button(context.emailNotices?'Turn off email notices':'Turn on email notices','outline'))+
+      (context.emailNotices ? form('set_digest',hidden('on',context.digest===false?'true':'false')+'<p class="small">'+(context.digest===false ?
+        'The weekly digest is off.' : 'Every Thursday evening you get “This week in your neighborhood”: the most-talked-about posts and the week’s events. Skipped on quiet weeks.')+'</p>'+
+        button(context.digest===false?'Turn on the weekly digest':'Turn off the weekly digest','outline')) : '')+'</section>'+
     '<section class="card panel"><h2>Account access</h2>'+form('logout',button('Sign out','outline'))+
       '<details class="danger"><summary>Delete my account</summary><p class="small">This permanently deletes your account and everything you posted: posts, replies, messages, reviews, photos and business profiles. It cannot be undone.</p>'+
       form('delete_account',field('Type DELETE to confirm','confirm',{min:6,max:6,autocomplete:'off',extra:'autocapitalize="characters" spellcheck="false"'})+

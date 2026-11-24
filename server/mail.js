@@ -2,7 +2,42 @@
 // without them, mail stays queued in the database and nothing is sent.
 const esc = (value = '') => String(value).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+const eventTime = new Intl.DateTimeFormat('en-US',{ weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York' });
+export const unsubscribeLink = (origin,token) => origin+'/api/core?action=unsubscribe&t='+encodeURIComponent(token);
+
+// "This week in <neighborhood>": the most-discussed posts and the coming week's events.
+function digest(item,origin) {
+  const p = item.payload ?? {};
+  const area = p.area ?? 'your neighborhood';
+  const link = (path) => origin+'/#'+path;
+  const posts = (p.posts ?? []).slice(0,5);
+  const events = (p.events ?? []).slice(0,6);
+  const greeting = item.name ? 'Hi '+item.name.split(' ')[0]+',' : 'Hi,';
+  const leave = unsubscribeLink(origin,p.token);
+  const subject = events.length && posts.length ? 'This week in '+area+': '+posts[0].title :
+    posts.length ? 'This week in '+area+': '+posts[0].title : 'Coming up in '+area+': '+events[0].title;
+  const replies = (n) => n ? ' · '+n+(n === 1 ? ' reply' : ' replies') : '';
+  const when = (e) => eventTime.format(new Date(e.event_at))+(e.place ? ' · '+e.place : '')+(e.area ? ' · '+e.area : '');
+  const text = [greeting,'','Here’s what’s happening in '+area+' this week.',
+    ...(posts.length ? ['','TALKED ABOUT THIS WEEK',...posts.map((x)=>'• '+x.title+replies(x.replies)+'\n  '+link('post/'+x.id))] : []),
+    ...(events.length ? ['','COMING UP',...events.map((e)=>'• '+e.title+' · '+when(e)+'\n  '+link('post/'+e.id))] : []),
+    '','Open Nabora: '+link('feed'),'',
+    'You get this weekly digest because you have a Nabora account. Stop the digest: '+leave+'\nOther email settings: '+link('account'),''].join('\n');
+  const row = (href,title,sub) => '<tr><td style="padding:10px 0;border-bottom:1px solid #e2e5da"><a href="'+esc(href)+'" style="color:#194633;font-weight:bold;text-decoration:none;font-size:16px">'+esc(title)+'</a>'+
+    (sub ? '<div style="color:#53635a;font-size:14px;margin-top:3px">'+esc(sub)+'</div>' : '')+'</td></tr>';
+  const section = (heading,rows) => '<p style="margin:22px 0 4px;font-size:12px;letter-spacing:1px;font-weight:bold;color:#3e7d6a">'+heading+'</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0">'+rows+'</table>';
+  const html = '<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#182b23;max-width:560px">'+
+    '<p style="margin:0 0 4px;font-size:20px;font-weight:bold;color:#194633">This week in '+esc(area)+'</p>'+
+    '<p style="margin:0 0 6px">'+esc(greeting)+' here’s what your neighbors are talking about and what’s coming up.</p>'+
+    (posts.length ? section('TALKED ABOUT THIS WEEK',posts.map((x)=>row(link('post/'+x.id),x.title,(x.preview ?? '').slice(0,140)+replies(x.replies))).join('')) : '')+
+    (events.length ? section('COMING UP',events.map((e)=>row(link('post/'+e.id),e.title,when(e))).join('')) : '')+
+    '<p style="margin:24px 0"><a href="'+esc(link('feed'))+'" style="display:inline-block;background:#194633;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:bold">Open Nabora</a></p>'+
+    '<p style="font-size:13px;color:#53635a">You get this weekly digest because you have a Nabora account. <a href="'+esc(leave)+'" style="color:#53635a">Stop the weekly digest</a> · <a href="'+esc(link('account'))+'" style="color:#53635a">Email settings</a></p></div>';
+  return { subject:subject.slice(0,120),text,html,unsubscribe:leave };
+}
+
 export function compose(item,origin) {
+  if (item.kind === 'digest') return digest(item,origin);
   const p = item.payload ?? {};
   const greeting = item.name ? 'Hi '+item.name.split(' ')[0]+',' : 'Hi,';
   const link = (path) => origin+'/#'+path;
@@ -42,7 +77,9 @@ export function mailerAdapter(env, request = fetch) {
       const response = await request('https://api.resend.com/emails',{
         method:'POST',
         headers:{ Authorization:'Bearer '+key,'Content-Type':'application/json','Idempotency-Key':'outbox-'+item.id },
-        body:JSON.stringify({ from,to:[item.email],subject:message.subject,text:message.text,html:message.html }),
+        body:JSON.stringify({ from,to:[item.email],subject:message.subject,text:message.text,html:message.html,
+          // One-click unsubscribe (RFC 8058), which Gmail and Yahoo require for bulk mail such as the digest.
+          ...(message.unsubscribe ? { headers:{ 'List-Unsubscribe':'<'+message.unsubscribe+'>','List-Unsubscribe-Post':'List-Unsubscribe=One-Click' } } : {}) }),
         signal:AbortSignal.timeout(6000)
       });
       return response.ok;

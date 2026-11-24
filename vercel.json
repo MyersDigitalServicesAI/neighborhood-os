@@ -9,7 +9,7 @@
   "crons": [
     {
       "path": "/api/core?action=deliver",
-      "schedule": "17 13 * * *"
+      "schedule": "7 22 * * *"
     },
     {
       "path": "/api/core?action=events",

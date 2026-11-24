@@ -6,8 +6,9 @@ import { action, blank, esc, form, button, typeInfo } from './ui.js';
 import * as push from './push.js';
 import { inject } from '@vercel/analytics';
 
-// Initialize Vercel Web Analytics
-inject();
+// Vercel Web Analytics, only in the built site: there it loads from nabora.us itself (/_vercel/insights), while in
+// local development it would pull a debug script from a third-party host.
+if (import.meta.env.PROD) inject();
 
 const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
@@ -523,6 +524,7 @@ async function submit(operation,data,element) {
       show('Invite revoked.');
       return render();
     case 'set_email_notices':
+    case 'set_digest':
     case 'update_profile':
     case 'request_residency':
     case 'cancel_residency':
