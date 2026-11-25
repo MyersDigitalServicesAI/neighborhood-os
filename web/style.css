@@ -216,3 +216,9 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 @media(max-width:950px){.steps ol{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:720px){.photo-hero{min-height:560px}.photo-hero-inner{padding:90px 0 34px}.photo-cards{grid-template-columns:1fr}.photo-card{min-height:280px}.steps ol{grid-template-columns:1fr}.photo-band-inner{padding:70px 0}}
 @media(prefers-reduced-motion:reduce){.photo-card img{transition:none}.photo-card:hover img{transform:none}}
+/* Trust: paid-badge note, rating breakdown, scam tip. */
+.badge-pair{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.paid-note{font-size:.74rem;font-weight:750;color:var(--quiet);text-decoration:underline}
+.breakdown{display:grid;gap:5px;max-width:420px;margin:4px 0 10px}.breakdown-row{display:grid;grid-template-columns:58px 1fr 28px;align-items:center;gap:9px;font-size:.84rem;color:var(--quiet)}
+.breakdown progress{appearance:none;width:100%;height:9px;border:0;border-radius:9px;background:#e8ebdf;overflow:hidden}.breakdown progress::-webkit-progress-bar{background:#e8ebdf;border-radius:9px}
+.breakdown progress::-webkit-progress-value{background:#d9a441;border-radius:9px}.breakdown progress::-moz-progress-bar{background:#d9a441;border-radius:9px}
+.scam-tip{margin:12px 0;border-color:#efcf9a;background:#fdf3e2;color:#5a3d12}

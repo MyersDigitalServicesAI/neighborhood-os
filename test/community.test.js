@@ -162,7 +162,7 @@ test('directory shows ratings and can filter to vetted businesses; contact chang
   assert.deepEqual([profile.phone,profile.hours,profile.owner,profile.review_count,profile.rating],['216-555-0100','Mon to Fri, 8 to 5','Luis G.',0,null]);
   await assert.rejects(call('luis','update_business',{id:business,category:'Home services',description:'Small repairs and finish carpentry.',website:'',phone:'call me maybe'}));
   assert.equal((await call('ava','directory',{vetted:'1'})).length,0);
-  await call('ava','submit_review',{id:business,rating:4,body:'They repaired my porch railing quickly and cleanly.',attest:true});
+  await call('ava','submit_review',{no_incentive:true,id:business,rating:4,body:'They repaired my porch railing quickly and cleanly.',attest:true});
   const [queued] = (await call('rina','moderation')).reviews;
   await call('rina','decide_review',{id:queued.id,action:'published',reason:'Firsthand account with no concerns.'});
   const [listed] = await call('jamal','directory',{q:'carpentry'});

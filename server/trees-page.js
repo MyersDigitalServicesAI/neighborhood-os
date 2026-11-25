@@ -62,5 +62,5 @@ export function treesPage(origin) {
       'If you missed it, call <a href="tel:2168618185">(216) 861-8185</a> to ask about a waiting list. They also help with holiday food and winter coats.</p></section>'+
     '<aside class="cta"><h2>Know a scout or church tree lot?</h2><p>The neighborhood lots run by scout troops, churches and schools rarely show up online. Post yours on Nabora so neighbors can find it, and support the group selling the trees.</p><a class="join" href="/#signup">Join free and share it</a></aside>'+
     '<p class="sources">Checked '+esc(treesChecked)+' from public listings, including PickYourOwnChristmasTree.org, PickingFarms, The Cleveland Bucket List and the farms’ own websites. Some details are from last season. Nabora isn’t paid by any farm or lot listed here.</p>'+
-    '</main><footer><a href="/">Nabora</a> · <a href="/events">Events</a> · <a href="/food">Local food</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
+    '</main><footer><a href="/">Nabora</a> · <a href="/events">Events</a> · <a href="/food">Local food</a> · <a href="/trust">Trust &amp; safety</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
 }
