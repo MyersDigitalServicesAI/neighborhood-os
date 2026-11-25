@@ -16,7 +16,7 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
   'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events',
-  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest']);
+  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest','roster']);
 // Operations that can queue an email; the queue is drained right after them.
 const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
 // Operations that can queue a phone notification; those are sent right after them too.
@@ -157,9 +157,11 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         // Thursday evenings (Cleveland time) also queue the weekly digest. ?digest=1 queues it on another day.
         const thursday = new Intl.DateTimeFormat('en-US',{ weekday:'short',timeZone:'America/New_York' }).format(new Date()) === 'Thu';
         const digests = mailer.enabled && (thursday || url.searchParams.get('digest') === '1') ? await database.mail({ op:'digest' }) : {};
+        // Everyone let in 48+ hours ago with a confirmed email who still hasn't chosen a neighborhood gets one reminder.
+        const reminders = mailer.enabled ? await database.mail({ op:'remind' }) : {};
         const mail = await deliver(database,mailer,{ budget:thursday ? 45000 : 15000,limit:25 });
         const push = await deliverPush(database,pusher,{ budget:10000,limit:50 });
-        return reply(res,200,{ ...mail,...push,...purged,...digests });
+        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders });
       }
       if (req.method === 'GET' && action === 'events') {
         // Weekly job: post upcoming library events and ward community meetings into each neighborhood.

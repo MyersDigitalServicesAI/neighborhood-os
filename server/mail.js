@@ -50,6 +50,9 @@ export function compose(item,origin) {
       (p.actor ?? 'A neighbor')+' posted a safety alert'+(p.area ? ' in '+p.area : '')+': '+(p.title ?? '')+'.','See the alert',link('post/'+p.post)],
     admitted:() => ['You’re in. Welcome to Nabora',
       'Your account has been admitted. Sign in and choose your neighborhood to start.','Choose my neighborhood',link('login')],
+    reminder:() => ['One step left to join your neighbors on Nabora',
+      'You’re in, but you haven’t chosen your neighborhood yet. Sign in and pick it to see local events, safety alerts, farmers markets and what your neighbors are talking about. It takes a minute.',
+      'Choose my neighborhood',link('login')],
     invite:() => [(p.inviter ?? 'A neighbor')+' invited you to Nabora',
       (p.inviter ?? 'A neighbor')+' invited you to join your neighbors on Nabora'+(p.area ? ' in '+p.area : '')+'. Open the link in the browser you will use, create an account, and you will be let straight in.',
       'Accept the invite',link('invite/'+p.code)]
