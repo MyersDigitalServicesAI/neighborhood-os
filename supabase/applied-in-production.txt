@@ -27,3 +27,4 @@
 20261130090000_flyers.sql
 20261201090000_weekly_digest.sql
 20261202090000_trust_framework.sql
+20261203090000_admin_roster_reminders.sql
