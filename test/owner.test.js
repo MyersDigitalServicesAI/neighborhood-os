@@ -12,7 +12,7 @@ before(async()=>{ db = await initDatabase(); business = await fixtures(db); });
 after(async()=>{ await db?.close(); });
 
 test('only the owner and the vetters they choose decide business vetting',async()=>{
-  await call('luis','apply_vetting',{id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
+  await call('luis','apply_vetting',{pledge:true,id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
   await call('rina','set_vetter',{id:actors.devon,remove:true});
   assert.equal((await call('devon','moderation')).vetting.length,0,'a moderator without vetting rights sees no vetting queue');
   await assert.rejects(call('devon','decide_vetting',evidence(business)),/platform owner and the people they choose/);

@@ -55,11 +55,11 @@ test('business profile ownership and neighborhood boundaries are enforced',async
   assert.equal('vetting' in b,false);
 });
 test('local screening queues reviews, humans decide, and a different moderator decides an appeal',async()=>{
-  await assert.rejects(call('luis','submit_review',{id:business,rating:5,attest:true,body:'The business did excellent work.'}),/cannot review/);
-  await assert.rejects(call('ava','submit_review',{id:business,rating:5,body:'Excellent work at the fixture address.'}),/firsthand/);
+  await assert.rejects(call('luis','submit_review',{no_incentive:true,id:business,rating:5,attest:true,body:'The business did excellent work.'}),/cannot review/);
+  await assert.rejects(call('ava','submit_review',{no_incentive:true,id:business,rating:5,body:'Excellent work at the fixture address.'}),/firsthand/);
   const body = 'They gave me a gift card in exchange for a review. Test fixture only.';
-  const {id} = await call('ava','submit_review',{id:business,rating:5,body,attest:true});
-  const duplicate = await call('jamal','submit_review',{id:business,rating:5,body,attest:true});
+  const {id} = await call('ava','submit_review',{no_incentive:true,id:business,rating:5,body,attest:true});
+  const duplicate = await call('jamal','submit_review',{no_incentive:true,id:business,rating:5,body,attest:true});
   await assert.rejects(call('ava','moderation'),/Moderator access/);
   assert.equal((await call('jamal','business',{id:business})).reviews.length,0);
   const cases = (await call('rina','moderation')).reviews;
@@ -69,7 +69,7 @@ test('local screening queues reviews, humans decide, and a different moderator d
   assert.ok(incentivized.score >= .45);
   assert.ok(cases.find((r)=>r.id===duplicate.id).score > incentivized.score);
   assert.equal(cases.find((r)=>r.id===duplicate.id).signals.duplicate,true);
-  await call('rina','decide_review',{id,action:'removed',reason:'The review mentions an incentive tied to the submission.'});
+  await call('rina','decide_review',{id,action:'removed',category:'incentivized',reason:'The review mentions an incentive tied to the submission.'});
   await assert.rejects(call('jamal','appeal',{id,body:'I am not the author of this review and cannot appeal.'}),/unavailable/);
   await call('ava','appeal',{id,body:'This fixture tests independent moderator reconsideration.'});
   await assert.rejects(call('rina','decide_appeal',{id,action:'restored',reason:'Same person must be denied.'}),/independent moderator/);
@@ -93,7 +93,7 @@ test('posts and replies can be reported locally and removed by staff',async()=>{
 });
 test('badge requires independent vetting and current paid entitlement; invalidation removes it',async()=>{
   await assert.rejects(call('luis','checkout',{id:business}),/Human vetting/);
-  await call('luis','apply_vetting',{id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
+  await call('luis','apply_vetting',{pledge:true,id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
   await assert.rejects(call('rina','decide_vetting',{id:business,action:'approved',reason:'Incomplete evidence test.'}),/Record independent/);
   const evidence = {id:business,action:'approved',reason:'Synthetic checks exercised only.',attestation:true,
     identityEvidence:'Synthetic registration check.',controlEvidence:'Synthetic public contact challenge.',
@@ -118,7 +118,7 @@ test('badge requires independent vetting and current paid entitlement; invalidat
   await call('luis','update_business',{id:business,category:'Retail',description:'Synthetic profile change.',website:''});
   assert.equal((await call('ava','business',{id:business})).verified,false);
   await assert.rejects(call('luis','checkout',{id:business}),/Human vetting/);
-  await call('luis','apply_vetting',{id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
+  await call('luis','apply_vetting',{pledge:true,id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
   await call('devon','decide_vetting',{...evidence,reason:'Synthetic recheck after the profile change.'});
   assert.equal((await call('ava','business',{id:business})).verified,true,'a paid fee carries over to a fresh approval');
   assert.equal(await sync(db,{business,payment:'pi_fixture',refunded:true,observedAt:new Date().toISOString()}),true);

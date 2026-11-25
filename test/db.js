@@ -127,7 +127,7 @@ export async function fixtures(db) {
   await db.query("insert into neighborhood.staff values($1,'admin'),($2,'moderator')",[actors.rina,actors.devon]);
   await db.query('insert into neighborhood.platform_owner(user_id) values($1)',[actors.rina]);
   await db.query('insert into neighborhood.vetters(user_id) values($1)',[actors.devon]);
-  const business = await rpc(db,actors.luis,'create_business',{
+  const business = await rpc(db,actors.luis,'create_business',{pledge:true,
     name:'Juniper Home Repair',category:'Home services',description:'Small repairs and finish carpentry for homes around Cleveland. Fixture business for local testing only.',website:''
   });
   const soon = (days,hour) => { const t = new Date(Date.now()+days*86400000); t.setHours(hour,0,0,0); return t.toISOString(); };

@@ -76,7 +76,7 @@ test('messages, profiles and business pages open only through a post the member 
   const shop = await call('new','business',{id:business});
   assert.deepEqual([shop.name,shop.area,shop.local,shop.updates.length],['Juniper Home Repair','Old Brooklyn',false,1]);
   assert.equal((await call('ava','business',{id:business})).local,true);
-  await assert.rejects(call('new','submit_review',{id:business,rating:5,body:'Reviews stay with the home neighborhood.',attest:true}),/cannot review/);
+  await assert.rejects(call('new','submit_review',{no_incentive:true,id:business,rating:5,body:'Reviews stay with the home neighborhood.',attest:true}),/cannot review/);
   assert.equal((await call('new','directory',{})).length,0);
 });
 

@@ -77,7 +77,8 @@ export const blank = (image,title,text,more = '') => '<section class="empty">'+i
 export const heading = (eyebrow,title,description,controls = '') => '<header class="page-heading"><div><p class="eyebrow">'+esc(eyebrow)+'</p><h1>'+esc(title)+'</h1><p>'+esc(description)+'</p></div>'+controls+'</header>';
 export const back = (label,route) => '<a class="back" href="#'+esc(route)+'">'+icon('back',16)+esc(label)+'</a>';
 export const stars = (rating) => '<span class="stars" aria-label="'+esc(rating)+' out of 5 stars">'+('★'.repeat(Math.max(0,Math.min(5,Number(rating) || 0))))+'</span>';
-export const verified = () => chip('Vetted Business','shield','verified');
+// The vetted badge always says it was a paid check, right next to it (FTC: disclose material connections clearly).
+export const verified = () => '<span class="badge-pair">'+chip('Vetted Business','shield','verified')+'<a class="paid-note" href="/trust#vetting">paid check</a></span>';
 export const tick = (on) => on ? '<span class="tick" title="Verified neighbor">'+icon('check',11)+'<span class="sr">Verified neighbor</span></span>' : '';
 export const person = (name,id,on) => '<strong>'+(id ? '<a href="#neighbor/'+ref(id)+'">'+esc(name)+'</a>' : esc(name))+tick(on)+'</strong>';
 export const photo = (id,alt,cls = 'photo') => id ? '<img class="'+cls+'" src="/api/core?action=image&amp;id='+ref(id)+'" alt="'+esc(alt)+'" loading="lazy" decoding="async">' : '';

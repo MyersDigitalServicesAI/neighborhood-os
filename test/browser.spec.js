@@ -63,9 +63,10 @@ test('desktop review submission, removal, independent appeal, and business vetti
   await page.screenshot({path:'test-results/feed-desktop.png',fullPage:true});
   await page.getByRole('link',{name:'Businesses',exact:true}).click();
   await page.getByRole('link',{name:'Juniper Home Repair',exact:true}).click();
-  await page.getByLabel('Rating').selectOption('4');
+  await page.locator('select[name="rating"]').selectOption('4');
   await page.getByLabel('Your review').fill('I hired this fixture business and had a satisfactory experience. This entry is for testing.');
   await page.getByLabel('I am describing my own firsthand experience.').check();
+  await page.getByLabel('Nobody paid me or offered me anything for this review, or for what it says.').check();
   await page.getByRole('button',{name:'Submit for review'}).click();
   await expect(page.getByText('Review sent for human moderation.')).toBeVisible();
   await expect(page.getByText('No published reviews yet.')).toBeVisible();
@@ -74,6 +75,7 @@ test('desktop review submission, removal, independent appeal, and business vetti
   await page.getByRole('link',{name:'Moderation',exact:true}).click();
   await page.getByText('Record review decision').click();
   await page.getByRole('combobox',{name:'Decision',exact:true}).selectOption('removed');
+  await page.getByRole('combobox',{name:'If removing: which rule it breaks'}).selectOption('off_topic');
   await page.getByLabel('Reason shown to the author').fill('Fixture removal so we can exercise the appeals path.');
   await page.getByRole('button',{name:'Save decision'}).click();
   await expect(page.getByText('Review decision recorded.')).toBeVisible();
@@ -91,6 +93,7 @@ test('desktop review submission, removal, independent appeal, and business vetti
   await page.getByLabel('Legal business name').fill('Synthetic Juniper Home Repair');
   await page.getByLabel('Public business registration or directory reference').fill('Synthetic registration number');
   await page.getByLabel('Public contact reference').fill('Synthetic public phone');
+  await page.getByLabel(/I pledge not to pay or reward anyone for reviews/).check();
   await page.getByRole('button',{name:'Send for vetting'}).click();
   await expect(page.getByText('Vetting application under review')).toBeVisible();
   await logout(page);
@@ -663,4 +666,46 @@ test('signed-out visitors find holiday tree lots and farms at /trees, and it fit
   await expect(page.getByRole('link',{name:'Join free and share it'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await page.screenshot({path:'test-results/trees-mobile.png',fullPage:true});
+});
+
+test('reviews show their disclosed connection and the full rating breakdown, the badge says it is a paid check, and /trust explains it all',async({page})=>{
+  await login(page,'ava');
+  await page.getByRole('link',{name:'Businesses',exact:true}).click();
+  await page.getByRole('link',{name:'Juniper Home Repair',exact:true}).click();
+  await page.locator('select[name="rating"]').selectOption('2');
+  await page.getByLabel('Your review').fill('Slow to show up, but the fence repair held through the winter. Testing only.');
+  await page.getByRole('combobox',{name:'Your connection to this business'}).selectOption('friend');
+  await page.getByLabel('I am describing my own firsthand experience.').check();
+  await page.getByRole('button',{name:'Submit for review'}).click();
+  await expect(page.getByText(/Confirm that nobody paid you/)).toHaveCount(0);
+  await expect(page.locator('form[data-action="submit_review"] input[name="no_incentive"]:invalid')).toHaveCount(1);
+  await page.getByLabel('Nobody paid me or offered me anything for this review, or for what it says.').check();
+  await page.getByRole('button',{name:'Submit for review'}).click();
+  await expect(page.getByText('Review sent for human moderation.')).toBeVisible();
+  await logout(page);
+
+  await login(page,'rina');
+  await page.goto('/#moderation');
+  const card = page.locator('article',{hasText:'Slow to show up'});
+  await card.getByText('Record review decision').click();
+  await card.getByRole('combobox',{name:'Decision',exact:true}).selectOption('removed');
+  await card.getByLabel('Reason shown to the author').fill('Trying to remove an honest low review.');
+  await card.getByRole('button',{name:'Save decision'}).click();
+  await expect(card.getByText('Reviews are never removed for being negative.',{exact:false})).toBeVisible();
+  await card.getByRole('combobox',{name:'Decision',exact:true}).selectOption('published');
+  await card.getByLabel('Reason shown to the author').fill('Honest firsthand review with the connection disclosed.');
+  await card.getByRole('button',{name:'Save decision'}).click();
+  await expect(page.getByText('Review decision recorded.')).toBeVisible();
+
+  await page.getByRole('link',{name:'Businesses',exact:true}).click();
+  await page.getByRole('link',{name:'Juniper Home Repair',exact:true}).click();
+  await expect(page.getByText('Friend of owner or staff')).toBeVisible();
+  await expect(page.getByLabel('Rating breakdown')).toBeVisible();
+  await expect(page.getByText('Reviews are never removed for being negative',{exact:false})).toBeVisible();
+
+  await page.goto('/trust');
+  await expect(page.getByRole('heading',{name:'We never remove a review for being negative'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'What the Vetted Business badge means'})).toBeVisible();
+  await page.setViewportSize({width:390,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
 });

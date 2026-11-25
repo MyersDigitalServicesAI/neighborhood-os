@@ -12,7 +12,7 @@ after(async()=>{ await db?.close(); });
 
 test('an admin waives the fee, but the badge still needs an approval from staff who do not own the business',async()=>{
   await assert.rejects(call('rina','waive_fee',{id:business,reason:'Founding business pilot'}),/apply for vetting first/);
-  await call('luis','apply_vetting',{id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
+  await call('luis','apply_vetting',{pledge:true,id:business,legal:'Fixture company',registration:'Fixture registry',contact:'Fixture contact'});
   await assert.rejects(call('devon','waive_fee',{id:business,reason:'Founding business pilot'}),/Admin access/,'moderators cannot waive fees');
   await assert.rejects(call('luis','waive_fee',{id:business,reason:'Founding business pilot'}),/Admin access/);
   await assert.rejects(call('rina','waive_fee',{id:business,reason:'short'}),/at least 8 characters/);
@@ -31,9 +31,9 @@ test('an admin waives the fee, but the badge still needs an approval from staff 
 });
 
 test('the owner can waive and approve their own business; a chosen vetter cannot approve their own',async()=>{
-  const own = await call('rina','create_business',{name:'Rina Pottery Studio',category:'Retail',
+  const own = await call('rina','create_business',{pledge:true,name:'Rina Pottery Studio',category:'Retail',
     description:'Hand-thrown mugs and planters made in a small home studio near the library.',website:''});
-  await call('rina','apply_vetting',{id:own.id,legal:'Rina Pottery LLC',registration:'Ohio SOS 1234567',contact:'Studio website'});
+  await call('rina','apply_vetting',{pledge:true,id:own.id,legal:'Rina Pottery LLC',registration:'Ohio SOS 1234567',contact:'Studio website'});
   await call('rina','waive_fee',{id:own.id,reason:'Founder business, reviewed by a second moderator'});
   assert.equal((await call('rina','admin')).fees.find((f)=>f.id===own.id).mine,true);
   assert.equal((await call('rina','moderation')).vetting.find((v)=>v.id===own.id).own,true,'the owner sees their own business in the queue');
@@ -42,9 +42,9 @@ test('the owner can waive and approve their own business; a chosen vetter cannot
   const audit = (await db.query("select details->>'own' own from neighborhood.audit where action = 'decide_vetting' and subject = $1",[own.id])).rows;
   assert.deepEqual(audit,[{own:'true'}],'a self-approval is marked in the audit log');
 
-  const devonsShop = await call('devon','create_business',{name:'Devon Bike Repair',category:'Retail',
+  const devonsShop = await call('devon','create_business',{pledge:true,name:'Devon Bike Repair',category:'Retail',
     description:'Tune-ups, flat repairs and used bikes from a garage workshop on the west side.',website:''});
-  await call('devon','apply_vetting',{id:devonsShop.id,legal:'Devon Bikes',registration:'Ohio trade name 99887',contact:'Shop phone'});
+  await call('devon','apply_vetting',{pledge:true,id:devonsShop.id,legal:'Devon Bikes',registration:'Ohio trade name 99887',contact:'Shop phone'});
   assert.equal((await call('devon','moderation')).vetting.some((v)=>v.id===devonsShop.id),false);
   await assert.rejects(call('devon','decide_vetting',evidence(devonsShop.id)),/unavailable or incomplete/);
 });

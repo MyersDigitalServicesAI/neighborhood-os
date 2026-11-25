@@ -30,7 +30,7 @@ export function landing(config) {
     steps()+story(config)+'</div>'+
     '<section class="photo-band"><div class="wrap photo-band-inner"><p class="eyebrow">THE INVITATION</p><h2>It starts <em>on your block.</em></h2>'+
     '<p>Free for neighbors. Verified by neighbors. Made in Cleveland.</p>'+join+'</div></section>'+
-    '</main><footer class="landing-footer wrap">'+brand+'<div><a href="/events">Events</a><a href="/food">Local food</a><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></footer>';
+    '</main><footer class="landing-footer wrap">'+brand+'<div><a href="/events">Events</a><a href="/food">Local food</a><a href="/trust">Trust &amp; safety</a><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></footer>';
 }
 function photoCard(name,alt,title,eyebrow,text) {
   return '<article class="photo-card"><img src="/photos/'+name+'.webp" alt="'+esc(alt)+'" width="900" height="502" loading="lazy" decoding="async">'+
@@ -104,7 +104,7 @@ export function information(route,signedIn) {
   ] : [
     ['Be a good neighbor','Keep it local and civil. Harassment, threats, impersonation, scams, discrimination, and sharing someone else’s private information are prohibited.'],
     ['Recommendations are free','Neighbors can suggest a service provider or answer a request using their personal account. Businesses can reply and list a profile for free. Disclose employment, ownership, or any other relevant affiliation when you reply.'],
-    ['Reviews need firsthand experience','Describe the work you actually experienced. Disclose relevant relationships. Fake reviews, incentives tied to sentiment, promotional copy, and private information are prohibited. Staff make publication and removal decisions. Authors can appeal removals for an independent decision.'],
+    ['Reviews need firsthand experience','Describe the work you actually experienced. Disclose relevant relationships. Fake reviews, incentives tied to sentiment, promotional copy, and private information are prohibited. Say how you’re connected to the business, and never accept anything for a review. Staff make publication and removal decisions against fixed rules, and never remove a review for being negative. Authors can appeal removals for an independent decision. See nabora.us/trust.'],
     ['What the badge means','A Vetted Business badge means staff documented business identity, control of a public business contact, and applicable license or insurance checks, and the business paid the one-time $250 vetting fee. Vetting is rechecked every year at no further charge and ends if the business changes its contact details or category. The badge carries no workmanship guarantee.'],
     ['Selling and safety alerts','List only items you own and may legally sell. Meet in a public place. Safety alerts are for urgent, firsthand local information. Describe what happened, never who you think someone is.']
   ];
@@ -144,7 +144,7 @@ export function shell(context,selected,body,aside = '') {
     '<span class="head-tools"><a class="icon-link map-link" href="#map" aria-label="Neighborhood map">'+icon('pin',20)+'</a><a class="icon-link" href="#search" aria-label="Search">'+icon('search',20)+'</a>'+
     '<a class="profile-link" href="#account" aria-label="Account">'+avatar(context.member.name)+'</a></span></div></header>'+
     '<div class="workspace '+(aside?'has-aside':'')+'"><aside class="sidebar"><p class="eyebrow">YOUR NEIGHBORHOOD</p>'+nav([...navigation,...(context.staff?[['moderation','Moderation','shield']]:[]),...(context.staff==='admin'?[['admin','Admin','user']]:[])],'side-nav')+
-    '<div class="side-help"><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></aside>'+
+    '<div class="side-help"><a href="/trust">Trust &amp; safety</a><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></aside>'+
     '<main id="content" tabindex="-1" class="app-main">'+body+'</main>'+
     (aside?'<aside class="rightbar">'+aside+'</aside>':'')+'</div>'+nav(mobileNavigation,'bottom-nav');
 }
@@ -408,6 +408,7 @@ export function businessForm(b) {
     field('Public business phone (optional)','phone',{type:'tel',max:20,value:b?.phone,required:false,placeholder:'216-555-0100',extra:'pattern="[0-9+() .\\-]{7,20}"'})+
     field('Opening hours (optional)','hours',{max:200,value:b?.hours,required:false,placeholder:'Mon to Fri, 8 to 5'})+
     upload(b?.image_id?'Replace the logo or photo (optional)':'Logo or photo (optional)')+
+    (b?'':check('I pledge not to pay or reward anyone for reviews, not to ask staff, family or friends for reviews without them saying so, and not to threaten anyone over a review.','pledge',true)+'<p class="small"><a href="/trust#businesses">Read the business integrity pledge</a></p>')+
     (b&&(b.vetting==='approved'||b.vetting==='pending')?'<p class="notice-box">Changing the category, website or phone ends the current vetting. You can apply again at no charge.</p>':'')+
     button(b?'Save profile':'Create profile','primary','arrow'))+'</section>';
 }
@@ -423,19 +424,23 @@ export function businessView(b,me) {
     (site?'<a class="button outline" href="'+site+'" target="_blank" rel="noopener noreferrer">'+icon('external',17)+'Website</a>':'')+'</div>'+
     (b.verified?'<p class="small">Vetted means staff confirmed this business’s identity, public contact and applicable credentials. It is not a guarantee of workmanship.</p>':'')+'</section>'+
     (b.updates.length?'<section class="detail-section"><h2>Latest from this business</h2><div class="cards">'+b.updates.map(postCard).join('')+'</div></section>':'')+
-    '<section class="detail-section"><h2>Neighbor reviews</h2><p class="quiet">Reviews describe firsthand experiences. A moderator decides what is published.</p>'+
+    '<section class="detail-section"><h2>Neighbor reviews</h2>'+ratingBreakdown(b)+
+    '<p class="quiet small">Every review is checked by a person before it appears. Reviews are never removed for being negative, only for breaking a <a href="/trust#reviews">review rule</a>'+
+      (b.removed_count?' ('+b.removed_count+' removed so far)':'')+'. Low ratings count in the average like any other.</p>'+
     '<div class="cards" id="review-results">'+(b.reviews.length?b.reviews.map(reviewCard).join(''):'<p class="quiet">No published reviews yet.</p>')+'</div>'+
     (b.reviews.length===25?pager('reviews-more',b.reviews.at(-1),hidden('id',b.id)):'')+'</section>'+
     (!b.local?'<p class="quiet">Reviews are written by members of '+esc(b.area)+'.</p>':!owner&&!b.ownReview?'<section class="card panel"><h2>Share your experience</h2>'+form('submit_review',hidden('id',b.id)+
       select('Rating','rating',[[5,'5 stars'],[4,'4 stars'],[3,'3 stars'],[2,'2 stars'],[1,'1 star']],'','Select a rating')+
       field('Your review','body',{type:'textarea',min:20,max:1600,hint:'Describe your firsthand experience. Leave out names, numbers, and addresses that are private.'})+
-      check('I have a relationship with this business that readers should know about.','affiliated')+
-      check('I am describing my own firsthand experience.','attest',true)+button('Submit for review','primary','arrow'))+'</section>':
+      select('Your connection to this business','relationship',[['','None. I’m a customer.'],['employee','I work there or used to'],['family','Family of the owner or staff'],
+        ['friend','Friend of the owner or staff'],['discount','I got a discount or something free'],['other','Another connection readers should know']],'')+
+      check('I am describing my own firsthand experience.','attest',true)+
+      check('Nobody paid me or offered me anything for this review, or for what it says.','no_incentive',true)+button('Submit for review','primary','arrow'))+'</section>':
       b.ownReview?action('See my review status','my-reviews','outline'):'');
 }
 export function reviewCard(r) {
   return '<article class="card reply"><div class="post-meta">'+avatar(r.author)+'<div>'+person(r.author,'',r.author_verified)+'<span>'+esc(date(r.created_at))+'</span></div><span class="spacer"></span>'+stars(r.rating)+'</div>'+
-    (r.affiliated?chip('Affiliation disclosed','brief','request'):'')+'<p class="post-text">'+esc(r.body)+'</p>'+
+    (r.affiliated?chip(relationshipLabels[r.relationship] ?? 'Connection disclosed','brief','request'):'')+'<p class="post-text">'+esc(r.body)+'</p>'+
     (r.reportable?'<details><summary>'+icon('flag',14)+' Report this review</summary>'+form('report_review',hidden('id',r.id)+
       field('Why should staff review this?','reason',{type:'textarea',min:12,max:700})+button('Send report','outline'))+'</details>':'')+'</article>';
 }
@@ -457,6 +462,7 @@ export function threadView(thread,me) {
     form(thread.blocked?'unblock':'block',hidden('peer',thread.peer_id)+button(thread.blocked?'Unblock messages':'Block messages','outline')))+
     '<section class="card panel conversation">'+(thread.messages.length===40?pager('messages-more',thread.messages[0],hidden('id',thread.id)):'')+
     '<div class="bubbles" id="message-results">'+thread.messages.map((m)=>bubble(m,me)).join('')+'</div>'+
+    (scamRisk(thread.messages)?scamTip:'')+
     (thread.blocked?'<p class="notice-box">You blocked messages from this neighbor.</p>':form('message',hidden('id',thread.id)+
       field('Your message','body',{type:'textarea',min:1,max:1800})+button('Send message','primary','arrow')))+'</section>';
 }
@@ -613,6 +619,7 @@ export function manageView(list,billing) {
           field('Legal business name','legal',{min:2,max:150})+
           field('Public business registration or directory reference','registration',{min:3,max:180,hint:'For example, an Ohio registration number or an official registry link.'})+
           field('Public contact reference','contact',{min:3,max:180,hint:'A business website or public business number. Keep personal documents out of this form.'})+
+          check('I pledge not to pay or reward anyone for reviews, not to ask staff, family or friends for reviews without them saying so, and not to threaten anyone over a review.','pledge',true)+'<p class="small"><a href="/trust#businesses">Read the business integrity pledge</a></p>'+
           '<p class="small">Applying is free. The $250 fee is requested only if staff approve your application'+(b.paid?', and yours is already paid':'')+'.</p>'+
           button('Send for vetting','primary','arrow'))+'</details>':'')+'</section>';
     }).join(''):blank('shop','You have no business profiles','Create a free profile to get started.'));
@@ -627,7 +634,7 @@ export function myReviewsView(reviews) {
         field('Why should an independent moderator reconsider?','body',{type:'textarea',min:20,max:1200})+button('Submit appeal','outline'))+'</details>':'')+'</section>').join(''):
       blank('star','No reviews yet','Reviews you submit for local businesses will appear here.'));
 }
-const signalLabels = {affiliation:'Declared affiliation',duplicate:'Matching review text',incentive:'Possible incentive',
+const signalLabels = {new_account:'Account under 7 days old',unverified:'Unverified reviewer',burst:'3+ reviews for this business in 24 hours',competitor:'Reviewer owns a competing business',affiliation:'Declared affiliation',duplicate:'Matching review text',incentive:'Possible incentive',
   promotion:'Promotional terms',personal:'Possible private information',abuse:'Possible abusive language',repetition:'Repeated characters'};
 export function moderationView(queue) {
   return heading('STAFF CONSOLE','Moderation','Human decisions govern publication, removals, appeals, and verification.')+
@@ -637,6 +644,8 @@ export function moderationView(queue) {
       r.reports.map((reason)=>'<p class="notice-box">Report: '+esc(reason)+'</p>').join('')+
       '<details><summary>Record review decision</summary>'+form('decide_review',hidden('id',r.id)+
         select('Decision','action',[['published',r.status==='pending'?'Publish':'Keep published'],['removed','Remove']],'','Choose a decision')+
+        select('If removing: which rule it breaks','category',[['','(Publishing, no rule broken)'],...removalRules],'')+
+        '<p class="small">Judge the text, never the rating. A harsh but honest review stays up.</p>'+
         field('Reason shown to the author','reason',{type:'textarea',min:12,max:700})+button('Save decision','outline'))+'</details></article>').join(''):
       blank('chat','No reviews in the queue','New reviews and reports appear here.'))+'</section>'+
     '<section class="detail-section"><h2>Independent appeals <small>'+queue.appeals.length+'</small></h2>'+
@@ -872,3 +881,26 @@ function shareCardData(post) {
   const time = starts && !Number.isNaN(starts.getTime()) ? starts.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) : '';
   return { id:post.id, kind:label, area:post.area, title:post.title, line:[time,post.place].filter(Boolean).join(' · ') };
 }
+
+// Trust labels and rules (see /trust).
+const relationshipLabels = { employee:'Works or worked there', family:'Family of owner or staff', friend:'Friend of owner or staff',
+  discount:'Got a discount or freebie', competitor:'Owns a competing business', other:'Connection disclosed' };
+const removalRules = [['not_firsthand','Not a firsthand experience'],['undisclosed_connection','Hidden connection to the business'],
+  ['incentivized','Paid or rewarded review'],['personal_info','Private information'],['harassment','Harassment or threats'],['hate','Hate or discrimination'],
+  ['sexual_or_violent','Sexual or violent content'],['spam','Spam or advertising'],['off_topic','Not about this business'],['illegal','Illegal content'],
+  ['duplicate','Duplicate of another review']];
+function ratingBreakdown(b) {
+  const counts = b.breakdown ?? {};
+  const total = Object.values(counts).reduce((a,n)=>a+Number(n),0);
+  if (!total) return '';
+  return '<div class="breakdown" aria-label="Rating breakdown">'+[5,4,3,2,1].map((n)=>{
+    const c = Number(counts[n] ?? 0);
+    return '<div class="breakdown-row"><span>'+n+' star'+(n===1?'':'s')+'</span><progress max="'+total+'" value="'+c+'" aria-label="'+c+' of '+total+' reviews"></progress><span>'+c+'</span></div>';
+  }).join('')+'</div>';
+}
+// Messages that ask for gift cards, wire transfers, overpayment or moving off the app are classic marketplace scams.
+const scamPattern = /\b(gift ?cards?|wire (the )?money|western union|money ?gram|zelle (first|before|upfront)|pay (first|upfront|before)|cashier'?s check|overpa(y|id)|shipping only|send (you )?a code|verification code|google voice|crypto|bitcoin)\b/i;
+export function scamRisk(messages) { return messages.some((m)=>scamPattern.test(m.body ?? '')); }
+const scamTip = '<div class="notice-box scam-tip" role="note"><strong>Stay safe:</strong> this conversation mentions something scammers often ask for. '+
+  'Never pay with gift cards, wire transfers or crypto, never share a code sent to your phone, and meet in a public place before any money changes hands. '+
+  '<a href="/trust#safety">Safety tips</a> · Report it with the flag on their post.</div>';

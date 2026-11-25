@@ -97,6 +97,10 @@
     {
       "source": "/trees",
       "destination": "/api/core?action=trees-page"
+    },
+    {
+      "source": "/trust",
+      "destination": "/api/core?action=trust-page"
     }
   ]
 }
