@@ -26,3 +26,4 @@
 20261129090000_push_notifications.sql
 20261130090000_flyers.sql
 20261201090000_weekly_digest.sql
+20261202090000_trust_framework.sql
