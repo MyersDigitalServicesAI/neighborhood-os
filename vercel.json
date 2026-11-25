@@ -93,6 +93,10 @@
     {
       "source": "/p/:id",
       "destination": "/api/core?action=short&p=:id"
+    },
+    {
+      "source": "/trees",
+      "destination": "/api/core?action=trees-page"
     }
   ]
 }

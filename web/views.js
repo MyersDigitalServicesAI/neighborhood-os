@@ -1,29 +1,51 @@
 import { action, ago, avatar, back, blank, brand, button, categories, check, chip, date, esc, field, form, heading, hidden, icon,
-  illustration, money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas, mark } from './ui.js';
+  money, person, photo, quick, ref, select, stars, tick, typeInfo, upload, url, verified, when, areas, mark } from './ui.js';
 
 export function landing(config) {
+  const join = config.signups ? action('Join your neighborhood','signup','primary','arrow') : action('Pilot sign in','login','primary','arrow');
   return '<header class="landing-header wrap"><a href="#" aria-label="Nabora home">'+brand+'</a><nav aria-label="Main navigation"><a class="landing-events" href="/events">Events</a><a class="landing-events desktop-link" href="/food">Local food</a><a class="desktop-link" href="#standards">Community standards</a>'+
-    action('Sign in','login','outline')+'</nav></header><main id="content" class="wrap landing">'+
-    '<section class="hero"><div class="hero-copy">'+chip('Northeast Ohio pilot','pin','location')+
+    action('Sign in','login','outline')+'</nav></header><main id="content" class="landing">'+
+    '<section class="photo-hero"><div class="wrap photo-hero-inner">'+chip('Northeast Ohio pilot','pin','location')+
     '<h1>Where neighborhoods <em>become neighbors.</em></h1>'+
-    '<p>Meet the people around you, find a local recommendation, and keep up with what’s happening in your neighborhood.</p>'+
-    '<div class="hero-actions">'+action(config.signups ? 'Join your neighborhood' : 'Pilot sign in',config.signups ? 'signup' : 'login','primary','arrow')+
-    action('How it works','standards','ghost')+'</div><small>Free for neighbors and local businesses.</small></div>'+
-    '<div class="hero-art">'+illustration+'<div class="art-tag">'+icon('pin',16)+' <span>Rooted in Northeast Ohio</span></div></div></section>'+
+    '<p>Meet the people around you, find a local recommendation, and keep up with what’s happening on your street, not in everyone’s feed.</p>'+
+    '<div class="hero-actions">'+join+'<a class="button ghost on-photo" href="#how" data-jump="how">How it works</a></div>'+
+    '<small>Free for neighbors and local businesses.</small></div></section>'+
+    '<div class="wrap">'+
     '<div class="area-strip"><span>STARTING IN</span>'+areas.map((a) => '<span>'+icon('pin',16)+esc(a)+'</span>').join('')+'</div>'+
     '<section class="landing-map" aria-labelledby="map-title"><div class="landing-map-copy"><p class="eyebrow">WHO’S HERE</p>'+
     '<h2 id="map-title">Find your neighborhood.</h2><p id="map-total" class="quiet">Every Cleveland neighborhood and Cuyahoga County suburb. Tap yours to see who has joined.</p>'+
     '<div class="map-legend"><span><i class="swatch level-3"></i>Growing</span><span><i class="swatch level-2"></i>A few neighbors</span><span><i class="swatch"></i>Be the first</span></div></div>'+
     '<div id="map-root" class="map"><p class="quiet map-wait">Loading the map…</p></div>'+
     '<div class="card panel" id="map-panel" aria-live="polite"><p class="quiet">Tap a neighborhood or suburb on the map.</p></div></section>'+
-    '<section class="intro"><p class="eyebrow">MADE FOR NEARBY</p><h2>A better way to be neighbors.</h2><div class="features">'+
-    feature('chat','The neighborhood feed','Ask a question, share local news, run a poll, or plan an event together.')+
-    feature('tag','Marketplace and lost & found','Sell or give away what you no longer need, and help a lost pet get home.')+
-    feature('alert','Safety alerts','Urgent local news reaches everyone in the neighborhood right away.')+
+    '<section class="intro"><p class="eyebrow">MADE FOR NEARBY</p><h2>A better way to be neighbors.</h2>'+
+    '<div class="photo-cards">'+
+      photoCard('porch','Neighbors talking together on a front porch at dusk','The feed','The hello','Ask a question, share local news, run a poll, or plan an event together.')+
+      photoCard('shop','A neighbor buying bread at a corner bakery','Marketplace & lost and found','The exchange','Sell or give away what you no longer need, and help a lost pet get home.')+
+      photoCard('skyline','Cleveland’s neighborhoods and skyline at dusk','Safety alerts','The watch','Urgent local news reaches everyone in the neighborhood right away.')+
+    '</div><div class="features">'+
     feature('brief','Local businesses','Free profiles, service requests, and reviews that a person checks before they are published.')+
-    feature('shield','Vetted businesses','A one-time vetting confirms a business is who it says it is. The badge is earned, never rented.')+
-    feature('lock','Verified without a file on you','Confirm your address by postcard. We delete it as soon as the card is mailed.')+
-    '</div></section>'+story(config)+'</main><footer class="landing-footer wrap">'+brand+'<div><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></footer>';
+    feature('shield','Vetted businesses','Free to list, optional to verify. A one-time review by a real person checks credentials and past work. The badge is earned, never rented.')+
+    feature('lock','Verified without a file on you','Confirm your address by postcard, or have two verified neighbors vouch for you. Addresses are deleted as soon as the card is mailed.')+
+    '</div></section>'+
+    steps()+story(config)+'</div>'+
+    '<section class="photo-band"><div class="wrap photo-band-inner"><p class="eyebrow">THE INVITATION</p><h2>It starts <em>on your block.</em></h2>'+
+    '<p>Free for neighbors. Verified by neighbors. Made in Cleveland.</p>'+join+'</div></section>'+
+    '</main><footer class="landing-footer wrap">'+brand+'<div><a href="/events">Events</a><a href="/food">Local food</a><a href="#standards">Community standards</a><a href="#privacy">Privacy</a></div></footer>';
+}
+function photoCard(name,alt,title,eyebrow,text) {
+  return '<article class="photo-card"><img src="/photos/'+name+'.webp" alt="'+esc(alt)+'" width="900" height="502" loading="lazy" decoding="async">'+
+    '<div><p class="eyebrow">'+esc(eyebrow.toUpperCase())+'</p><h3>'+esc(title)+'</h3><p>'+esc(text)+'</p></div></article>';
+}
+// How it works, in the order a new neighbor actually goes through it.
+function steps() {
+  const list = [
+    ['Find your neighborhood','All 34 Cleveland neighborhoods and 57 Cuyahoga County suburbs are on the map. Tap yours and be one of the first to join.'],
+    ['Get verified','By postcard, by two verified neighbors vouching for you, or by checking in at a community event. No file on you.'],
+    ['Say hello','Introduce yourself, ask your first question, or recommend the plumber you actually trust.'],
+    ['Show up','Library craft nights, ward meetings, holiday lights. What’s on this week, in one place.']
+  ];
+  return '<section class="steps" id="how" aria-labelledby="how-title"><p class="eyebrow">HOW IT WORKS</p><h2 id="how-title">Four steps to knowing your street.</h2>'+
+    '<ol>'+list.map(([title,text],i)=>'<li><span class="step-number">0'+(i+1)+'</span><h3>'+esc(title)+'</h3><p>'+esc(text)+'</p></li>').join('')+'</ol></section>';
 }
 function story(config) {
   const pillars = [

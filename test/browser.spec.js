@@ -5,7 +5,7 @@ async function login(page, account) {
   await page.getByLabel('Email address').fill(account+'@neighborhood.test');
   await page.getByLabel('Password',{exact:true}).fill('local-fixture-pass');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Your neighborhood'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
 }
 async function logout(page) {
   await page.goto('/#account');
@@ -306,7 +306,7 @@ test('an admin creates an invite link and admits a waiting account; a member del
   await page.getByLabel('Email address').fill('taylor@neighborhood.test');
   await page.getByLabel('Password',{exact:true}).fill('local-fixture-pass');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Your neighborhood'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
   await page.goto('/#account');
   await expect(page.getByRole('button',{name:'Turn off email notices'})).toBeVisible();
   await page.getByRole('button',{name:'Turn off email notices'}).click();
@@ -507,7 +507,7 @@ test('signed-out visitors browse citywide events at /events, without poster name
   await page.getByRole('button',{name:'Sign out'}).click();
   await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
 
-  await page.getByRole('link',{name:'Events',exact:true}).click();
+  await page.getByRole('navigation',{name:'Main navigation'}).getByRole('link',{name:'Events',exact:true}).click();
   await expect(page).toHaveURL(/\/events$/);
   await expect(page.getByRole('heading',{name:'Things to do in Cleveland',level:1})).toBeVisible();
   const event = page.locator('article.event',{hasText:'Public holiday market'});
@@ -589,7 +589,7 @@ test('neighbors are offered notifications once on the feed, and can manage them 
   await nudge.getByRole('button',{name:'Not now'}).click();
   await expect(nudge).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole('heading',{name:'Your neighborhood'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
   await expect(page.locator('.push-nudge')).toHaveCount(0);
 
   await page.goto('/#account');
@@ -653,4 +653,14 @@ test('a neighbor turns the weekly digest off and back on from their account page
   await expect(page.getByRole('button',{name:'Turn off email notices'})).toBeVisible();
   await page.getByRole('button',{name:'Turn on the weekly digest'}).click();
   await expect(page.getByRole('button',{name:'Turn off the weekly digest'})).toBeVisible();
+});
+
+test('signed-out visitors find holiday tree lots and farms at /trees, and it fits a phone',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  await page.goto('/trees');
+  await expect(page.getByRole('heading',{name:'Where to get a Christmas tree in Cleveland'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Sugar Pines Farm'})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Join free and share it'})).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await page.screenshot({path:'test-results/trees-mobile.png',fullPage:true});
 });

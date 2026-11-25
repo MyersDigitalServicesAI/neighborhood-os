@@ -181,3 +181,38 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
   body.flyer-mode .flyer-sheet.quarter .qr-slot{width:1.6in}body.flyer-mode .flyer-sheet.quarter h2{font-size:1.55rem}body.flyer-mode .flyer-sheet.quarter ul{font-size:.95rem}
   body.flyer-mode .flyer-card{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+/* Landing: photo hero, serif headlines, photo cards, how-it-works steps and the closing invitation. */
+.landing h1,.landing h2,.photo-card h3,.steps h3{font-family:"Fraunces Variable",Georgia,serif;letter-spacing:-.02em;font-weight:560}
+.landing em{font-style:italic;font-weight:500}
+.photo-hero{position:relative;isolation:isolate;color:#fbf6ea;background:#13231b url(/photos/street.webp) center 38%/cover no-repeat;min-height:min(76vh,680px);display:flex;align-items:flex-end}
+.photo-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#0d1a1366 0%,#0d1a1399 45%,#0d1a13e6 100%)}
+.photo-hero-inner{padding:110px 0 54px;display:grid;gap:16px;justify-items:start}
+.photo-hero h1{margin:4px 0 0;font-size:clamp(2.9rem,7.2vw,6.1rem);line-height:.98;max-width:13ch;color:#fbf6ea}
+.photo-hero h1 em{color:#f6c27a}
+.photo-hero p{margin:0;max-width:560px;font-size:clamp(1.02rem,1.6vw,1.18rem);line-height:1.55;color:#eae4d4}
+.photo-hero small{color:#d6cfbd}
+.photo-hero .chip{background:#fbf6ea22;color:#fbf6ea;border:1px solid #fbf6ea44}
+.photo-hero .primary,.photo-band .primary{background:#f6b35f;border-color:#f6b35f;color:#1d2a22}.photo-hero .primary:hover,.photo-band .primary:hover{background:#f8c27c;border-color:#f8c27c}
+.button.on-photo{color:#fbf6ea}.button.on-photo:hover{background:#fbf6ea1f}
+.landing .area-strip{margin-top:0}
+.landing h2 em{color:var(--forest)}
+.photo-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+.photo-card{position:relative;overflow:hidden;border-radius:18px;background:#13231b;color:#fbf6ea;min-height:340px;display:flex;align-items:flex-end;isolation:isolate}
+.photo-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;transition:transform .5s ease}
+.photo-card::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#0d1a1300 30%,#0d1a13e0 100%)}
+.photo-card:hover img{transform:scale(1.04)}
+.photo-card>div{padding:20px}.photo-card .eyebrow{color:#f6c27a;margin:0}.photo-card h3{margin:4px 0 6px;font-size:1.5rem;color:#fbf6ea}.photo-card p{margin:0;color:#e4ddcc;font-size:.95rem;line-height:1.45}
+.steps{padding:30px 0 10px}.steps h2{font-size:clamp(1.9rem,4vw,2.75rem);margin:7px 0 22px}
+.steps ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.steps li{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px}
+.step-number{font-family:"Fraunces Variable",Georgia,serif;font-size:2.2rem;color:#c07a2c;line-height:1}
+.steps h3{margin:10px 0 6px;font-size:1.25rem}.steps p{margin:0;color:var(--quiet);font-size:.95rem;line-height:1.5}
+.photo-band{position:relative;isolation:isolate;margin-top:40px;color:#fbf6ea;background:#13231b url(/photos/block-party.webp) center/cover no-repeat}
+.photo-band::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,#0d1a13b3,#0d1a13d9)}
+.photo-band-inner{padding:92px 0;display:grid;gap:14px;justify-items:center;text-align:center}
+.photo-band h2{margin:0;font-size:clamp(2.4rem,6vw,4.4rem);line-height:1.02;color:#fbf6ea}.photo-band h2 em{color:#f6c27a}
+.photo-band .eyebrow{color:#f6c27a;margin:0}.photo-band p{margin:0 0 6px;color:#e4ddcc}
+.landing-footer{flex-wrap:wrap}
+@media(max-width:950px){.steps ol{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:720px){.photo-hero{min-height:560px}.photo-hero-inner{padding:90px 0 34px}.photo-cards{grid-template-columns:1fr}.photo-card{min-height:280px}.steps ol{grid-template-columns:1fr}.photo-band-inner{padding:70px 0}}
+@media(prefers-reduced-motion:reduce){.photo-card img{transition:none}.photo-card:hover img{transform:none}}

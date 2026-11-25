@@ -52,5 +52,5 @@ export function eventsPage(data, origin) {
     (days.length ? days.map((d)=>'<section><h2>'+esc(d.label)+'</h2>'+d.items.map(card).join('')+'</section>').join('')
       : '<p class="empty">Nothing is posted for this yet. Try “All upcoming”, or join Nabora and post the first one.</p>')+
     '<aside class="cta"><h2>Where neighborhoods become neighbors.</h2><p>Join Nabora to RSVP, post your own events, and see what your neighbors recommend. It’s free for neighbors.</p><a class="join" href="/#signup">Find your neighborhood</a></aside>'+
-    '</main><footer><a href="/">Nabora</a> · <a href="/food">Local food</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
+    '</main><footer><a href="/">Nabora</a> · <a href="/food">Local food</a> · <a href="/trees">Holiday trees</a> · <a href="/#standards">Community standards</a> · <a href="/#privacy">Privacy</a></footer></body></html>';
 }

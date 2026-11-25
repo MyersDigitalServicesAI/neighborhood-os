@@ -23,8 +23,8 @@ if (fixture) {
 const vite = await createVite({ server:{ middlewareMode:true, hmr:false }, appType:'spa' });
 const handler = makeHandler({ env,database,local:true,pusher });
 createServer((req,res) => {
-  if (['/events','/food'].includes(req.url?.split('?')[0])) {
-    // Mirrors the /events and /food rewrites in vercel.json.
+  if (['/events','/food','/trees'].includes(req.url?.split('?')[0])) {
+    // Mirrors the /events, /food and /trees rewrites in vercel.json.
     req.url = '/api/core?action='+req.url.split('?')[0].slice(1)+'-page'+(req.url.includes('?') ? '&'+req.url.split('?')[1] : '');
     return handler(req,res);
   }

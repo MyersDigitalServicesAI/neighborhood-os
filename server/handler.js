@@ -6,6 +6,7 @@ import { deliverPush, pushAdapter, pushHosts } from './push.js';
 import { gatherEvents } from './events.js';
 import { eventsPage } from './events-page.js';
 import { foodPage, foodKinds } from './food-page.js';
+import { treesPage } from './trees-page.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -120,6 +121,12 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         }
         res.setHeader('Content-Type','text/html; charset=utf-8');
         return res.end(eventsPage(data,(env.APP_ORIGIN || base).replace(/\/$/,'')));
+      }
+      if (req.method === 'GET' && action === 'trees-page') {
+        res.statusCode = 200;
+        res.setHeader('Cache-Control','public, max-age=600, s-maxage=3600');
+        res.setHeader('Content-Type','text/html; charset=utf-8');
+        return res.end(treesPage((env.APP_ORIGIN || base).replace(/\/$/,'')));
       }
       if (req.method === 'GET' && (action === 'public-food' || action === 'food-page')) {
         // Public: local food listings for anyone. Cached briefly at the edge.
