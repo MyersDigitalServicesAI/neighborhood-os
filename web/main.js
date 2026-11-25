@@ -1,5 +1,7 @@
 import '@fontsource-variable/manrope/wght.css';
 import '@fontsource-variable/dm-sans/wght.css';
+import '@fontsource-variable/fraunces/opsz.css';
+import '@fontsource-variable/fraunces/opsz-italic.css';
 import './style.css';
 import * as view from './views.js';
 import { action, blank, esc, form, button, typeInfo } from './ui.js';
