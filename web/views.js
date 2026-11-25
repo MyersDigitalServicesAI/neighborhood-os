@@ -544,7 +544,19 @@ export function adminView(data,areas,created) {
   const origin = location.origin;
   const inviteLink = (code) => origin+'/#invite/'+code;
   const live = (i) => !i.revoked_at && new Date(i.expires_at) > new Date() && i.uses < i.max_uses;
-  return heading('ADMIN','People and invites',data.members+' members · '+data.admitted+' admitted and not joined yet · '+data.pending.length+' waiting')+
+  const joining = data.joining ?? [];
+  const unconfirmed = joining.filter((j)=>!j.confirmed);
+  const unchosen = joining.filter((j)=>j.confirmed);
+  const joinRow = (j) => '<article class="card panel admin-row"><div><strong>'+esc(j.email)+'</strong><small>'+esc('Signed up '+date(j.signed_up)+
+    (j.confirmed ? (j.last_seen?' · last signed in '+date(j.last_seen):' · never signed in')+(j.reminded_at?' · reminder sent '+date(j.reminded_at):' · reminder goes out 48 hours after confirming')
+      : (j.confirmation_sent_at?' · confirmation email sent '+date(j.confirmation_sent_at):'')))+'</small></div>'+
+    '<button class="button ghost" type="button" data-copy="'+esc(j.email)+'" data-copied="Email copied.">Copy email</button></article>';
+  return heading('ADMIN','People and invites',data.members+' members · '+unchosen.length+' confirmed but haven’t chosen a neighborhood · '+unconfirmed.length+' haven’t confirmed their email'+(data.pending.length?' · '+data.pending.length+' waiting':''),
+      action('Member roster','roster','outline','user'))+
+    '<section class="detail-section"><h2>Confirmed, haven’t chosen a neighborhood <small>'+unchosen.length+'</small></h2><p class="quiet">They can sign in now. One more step: choosing a neighborhood. Nabora emails each of them one reminder 48 hours after they confirm. A personal text works even better.</p>'+
+      (unchosen.length?'<div class="cards">'+unchosen.map(joinRow).join('')+'</div>':'<p class="quiet">Nobody right now.</p>')+'</section>'+
+    '<section class="detail-section"><h2>Haven’t confirmed their email <small>'+unconfirmed.length+'</small></h2><p class="quiet">They can’t sign in until they click the link in their confirmation email. Ask them to check spam, or to sign up again with the same email to get a fresh link.</p>'+
+      (unconfirmed.length?'<div class="cards">'+unconfirmed.map(joinRow).join('')+'</div>':'<p class="quiet">Nobody right now.</p>')+'</section>'+
     (created ? '<section class="card panel invite-created"><h2>Invite link ready</h2>'+
       '<p class="quiet">'+(created.emailed?'We emailed it as well. ':'')+'Anyone with this link is admitted, up to the number of uses you set.</p>'+
       '<div class="copy-row"><input readonly value="'+esc(inviteLink(created.code))+'" aria-label="Invite link"><button class="button primary" type="button" data-copy="'+esc(inviteLink(created.code))+'">Copy link</button></div></section>' : '')+
@@ -904,3 +916,29 @@ export function scamRisk(messages) { return messages.some((m)=>scamPattern.test(
 const scamTip = '<div class="notice-box scam-tip" role="note"><strong>Stay safe:</strong> this conversation mentions something scammers often ask for. '+
   'Never pay with gift cards, wire transfers or crypto, never share a code sent to your phone, and meet in a public place before any money changes hands. '+
   '<a href="/trust#safety">Safety tips</a> · Report it with the flag on their post.</div>';
+
+// Admin-only member roster: who is on Nabora, their email and their neighborhood.
+const roleNames = { admin:'Admin', moderator:'Moderator' };
+const verifiedVia = { postcard:'postcard', vouch:'vouches', checkin:'check-in' };
+export function rosterView(members) {
+  const byArea = {};
+  for (const m of members) byArea[m.area] = (byArea[m.area] ?? 0) + 1;
+  const areasSorted = Object.entries(byArea).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const emails = members.map((m)=>m.email).filter(Boolean).join(', ');
+  return back('Back to admin','admin')+heading('ADMIN','Member roster',members.length+' '+(members.length===1?'member':'members')+' in '+areasSorted.length+' '+(areasSorted.length===1?'neighborhood':'neighborhoods')+'. Private to admins.',
+      '<span class="inline-actions"><button class="button outline" type="button" data-copy="'+esc(emails)+'" data-copied="All member emails copied.">Copy all emails</button>'+
+      '<button class="button outline" type="button" data-csv="roster">Download CSV</button></span>')+
+    '<p class="notice-box">These emails are private. Use them only to run Nabora, never for unrelated marketing, and never share them. Members who switched off email notices shouldn’t get bulk email from you either.</p>'+
+    '<div class="roster-areas">'+areasSorted.map(([a,n])=>'<span class="chip">'+esc(a)+' · '+n+'</span>').join('')+'</div>'+
+    '<div class="roster-wrap"><table class="roster" id="roster-table"><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Neighborhood</th><th scope="col">Joined</th><th scope="col">Verified</th><th scope="col">Role</th><th scope="col">Emails</th></tr></thead><tbody>'+
+    members.map((m)=>'<tr><td><a href="#neighbor/'+ref(m.id)+'">'+esc(m.name)+'</a></td><td><a href="mailto:'+esc(m.email)+'">'+esc(m.email)+'</a></td><td>'+esc(m.area)+'</td>'+
+      '<td>'+esc(date(m.joined))+'</td><td>'+(m.verified?'Yes ('+esc(verifiedVia[m.verified_via] ?? 'yes')+')':'No')+'</td><td>'+esc(roleNames[m.role] ?? 'Member')+'</td>'+
+      '<td>'+(m.email_notices?(m.digest===false?'On (no digest)':'On'):'Off')+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
+export function rosterCsv(members) {
+  const cell = (v) => { const t = String(v ?? ''); return /[",\n]/.test(t) || /^[=+\-@]/.test(t) ? '"'+(/^[=+\-@]/.test(t)?"'":'')+t.replaceAll('"','""')+'"' : t; };
+  const rows = [['Name','Email','Neighborhood','Joined','Verified','Verified by','Role','Email notices','Weekly digest','Last signed in'],
+    ...members.map((m)=>[m.name,m.email,m.area,String(m.joined).slice(0,10),m.verified?'yes':'no',m.verified_via ?? '',m.role ?? 'member',m.email_notices?'on':'off',m.digest===false?'off':'on',String(m.last_seen ?? '').slice(0,10)])];
+  return rows.map((r)=>r.map(cell).join(',')).join('\r\n')+'\r\n';
+}

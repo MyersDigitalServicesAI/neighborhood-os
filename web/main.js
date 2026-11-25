@@ -16,7 +16,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events','flyers','flyer']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events','flyers','flyer','roster']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -72,6 +72,7 @@ async function showMap(options) {
 }
 const inviteKey = 'nh_invite';
 let createdInvite = null;
+let roster = [];
 function storedInvite() {
   try { return localStorage.getItem(inviteKey) ?? ''; } catch { return ''; }
 }
@@ -329,6 +330,13 @@ async function render() {
         page = 'account';
         content = view.hostSessionView(await rpc('checkin_host',{id}));
         break;
+      case 'roster': {
+        page = 'admin';
+        if (context.staff !== 'admin') throw new ApiError(403,'Only admins can see the member roster.');
+        roster = (await rpc('roster')).members;
+        content = view.rosterView(roster);
+        break;
+      }
       case 'flyers':
         page = 'account';
         content = view.flyersView((await rpc('flyers')).flyers,context,location.origin);
@@ -580,6 +588,13 @@ async function submit(operation,data,element) {
 
 app.addEventListener('click',async (event)=>{
   if (event.target.closest('[data-print]')) { window.print(); return; }
+  if (event.target.closest('[data-csv]')) {
+    const url = URL.createObjectURL(new Blob([view.rosterCsv(roster)],{ type:'text/csv' }));
+    const a = Object.assign(document.createElement('a'),{ href:url, download:'nabora-members-'+new Date().toISOString().slice(0,10)+'.csv' });
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+    return;
+  }
   const card = event.target.closest('[data-card]');
   if (card) {
     card.disabled = true;

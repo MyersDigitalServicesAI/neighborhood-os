@@ -297,7 +297,10 @@ test('an admin creates an invite link and admits a waiting account; a member del
   await expect(page.getByText('0 of 10 used',{exact:false})).toBeVisible();
   await page.locator('.admin-row',{hasText:'new@neighborhood.test'}).getByRole('button',{name:'Admit'}).click();
   await expect(page.getByText('Admitted. They can now choose a neighborhood.')).toBeVisible();
-  await expect(page.getByText('new@neighborhood.test')).toHaveCount(0);
+  // Admitted people leave the waiting list and show up as confirmed but not yet in a neighborhood.
+  const admitted = page.locator('.admin-row',{hasText:'new@neighborhood.test'});
+  await expect(admitted.getByRole('button',{name:'Admit'})).toHaveCount(0);
+  await expect(admitted).toContainText('never signed in');
   const devon = page.locator('.admin-row',{hasText:'Devon W.'});
   await expect(devon.getByRole('combobox')).toHaveValue('moderator');
   await page.screenshot({path:'test-results/admin-mobile.png',fullPage:true});
@@ -708,4 +711,25 @@ test('reviews show their disclosed connection and the full rating breakdown, the
   await expect(page.getByRole('heading',{name:'What the Vetted Business badge means'})).toBeVisible();
   await page.setViewportSize({width:390,height:844});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+});
+
+test('an admin sees who still has to confirm or choose a neighborhood, and the member roster with emails and neighborhoods',async({page})=>{
+  await page.setViewportSize({width:1280,height:900});
+  await login(page,'rina');
+  await page.goto('/#admin');
+  await expect(page.getByRole('heading',{name:/Confirmed, haven’t chosen a neighborhood/})).toBeVisible();
+  await expect(page.getByRole('heading',{name:/Haven’t confirmed their email/})).toBeVisible();
+  await page.getByRole('link',{name:'Member roster'}).click();
+  await expect(page.getByRole('heading',{name:'Member roster'})).toBeVisible();
+  const row = page.locator('#roster-table tr',{hasText:'Ava M.'});
+  await expect(row).toContainText('ava@neighborhood.test');
+  await expect(row).toContainText('Old Brooklyn');
+  const download = page.waitForEvent('download');
+  await page.getByRole('button',{name:'Download CSV'}).click();
+  expect((await download).suggestedFilename()).toMatch(/^nabora-members-\d{4}-\d{2}-\d{2}\.csv$/);
+  await page.screenshot({path:'test-results/roster.png',fullPage:true});
+  await logout(page);
+  await login(page,'ava');
+  await page.goto('/#roster');
+  await expect(page.getByText('Only admins can see the member roster.')).toBeVisible();
 });

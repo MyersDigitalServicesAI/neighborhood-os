@@ -4,7 +4,7 @@ import { Problem } from '../server/supabase.js';
 
 export async function initDatabase() {
   const db = new PGlite();
-  await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users (id uuid primary key,email_confirmed_at timestamptz,email text,created_at timestamptz not null default now()); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;");
+  await db.exec("create role anon; create role authenticated; create role service_role; create schema auth; create table auth.users (id uuid primary key,email_confirmed_at timestamptz,email text,created_at timestamptz not null default now(),confirmation_sent_at timestamptz,last_sign_in_at timestamptz); create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;");
   const folder = new URL('../supabase/migrations/',import.meta.url);
   for (const file of (await readdir(folder)).filter((file) => file.endsWith('.sql')).sort()) {
     await db.exec(await readFile(new URL(file,folder),'utf8'));
