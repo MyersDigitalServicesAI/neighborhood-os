@@ -301,8 +301,9 @@ test('an admin creates an invite link and admits a waiting account; a member del
   const admitted = page.locator('.admin-row',{hasText:'new@neighborhood.test'});
   await expect(admitted.getByRole('button',{name:'Admit'})).toHaveCount(0);
   await expect(admitted).toContainText('never signed in');
-  const devon = page.locator('.admin-row',{hasText:'Devon W.'});
-  await expect(devon.getByRole('combobox')).toHaveValue('moderator');
+  const devon = page.locator('#team .admin-row',{hasText:'Devon W.'});
+  await expect(devon).toContainText('Moderator');
+  await expect(devon.getByRole('button',{name:'Invite to be an admin'})).toBeVisible();
   await page.screenshot({path:'test-results/admin-mobile.png',fullPage:true});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await logout(page);
@@ -732,4 +733,48 @@ test('an admin sees who still has to confirm or choose a neighborhood, and the m
   await login(page,'ava');
   await page.goto('/#roster');
   await expect(page.getByText('Only admins can see the member roster.')).toBeVisible();
+});
+
+test('an admin invites a moderator who accepts, messages a member as the team, and collects answers to a question',async({page})=>{
+  await page.setViewportSize({width:1280,height:900});
+  await login(page,'rina');
+  await page.goto('/#admin');
+  await page.locator('#team .admin-row',{hasText:'Luis G.'}).getByRole('button',{name:'Invite as moderator'}).click();
+  await expect(page.getByText('Invitation sent.',{exact:false})).toBeVisible();
+  await expect(page.locator('#team .admin-row',{hasText:'Luis G.'})).toContainText('Invited as Moderator');
+
+  await page.getByRole('combobox',{name:'Who to ask'}).selectOption('all');
+  await page.getByLabel('Your question').fill('What would make you post on Nabora more often?');
+  await page.getByRole('button',{name:'Send question'}).click();
+  await expect(page.getByRole('heading',{name:'What would make you post on Nabora more often?'})).toBeVisible();
+
+  await page.goto('/#roster');
+  await page.locator('#roster-table tr',{hasText:'Jamal R.'}).getByRole('link',{name:'Message'}).click();
+  await expect(page.getByRole('heading',{name:'Message Jamal R.'})).toBeVisible();
+  await page.getByLabel('Your message').fill('Thanks for posting the trail cleanup! Want to help moderate?');
+  await page.getByRole('button',{name:'Send message'}).click();
+  await expect(page.getByText('From the Nabora team').first()).toBeVisible();
+  await logout(page);
+
+  await login(page,'luis');
+  await expect(page.getByRole('heading',{name:'Rina P. invited you to be a moderator'})).toBeVisible();
+  await page.getByRole('button',{name:'Accept'}).click();
+  await expect(page.getByText('Welcome to the team.',{exact:false})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Moderation',exact:true})).toBeVisible();
+  await logout(page);
+
+  await login(page,'jamal');
+  const prompt = page.locator('.team-prompt',{hasText:'What would make you post on Nabora more often?'});
+  await prompt.getByLabel('Your answer').fill('Faster replies from neighbors.');
+  await prompt.getByRole('button',{name:'Send answer'}).click();
+  await expect(page.getByText('Thanks! Your answer went to the Nabora team.')).toBeVisible();
+  await expect(page.locator('.team-prompt',{hasText:'What would make you post on Nabora more often?'})).toHaveCount(0);
+  await logout(page);
+
+  await login(page,'rina');
+  await page.goto('/#admin');
+  await page.getByRole('link',{name:/What would make you post on Nabora more often\?/}).click();
+  await expect(page.getByText('Faster replies from neighbors.')).toBeVisible();
+  await expect(page.getByText('Jamal R.',{exact:true})).toBeVisible();
+  await page.screenshot({path:'test-results/team-question.png',fullPage:true});
 });

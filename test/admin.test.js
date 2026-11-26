@@ -30,9 +30,13 @@ test('only admins see the admin page, admit people and manage roles',async()=>{
   assert.deepEqual((await outbox()).filter((o)=>o.kind!=='alert').map((o)=>[o.to_user,o.kind]),[[extra,'admitted']]);
   assert.equal((await outbox()).filter((o)=>o.kind==='alert').length,4,'the fixture safety alert queued one email per other Old Brooklyn neighbor');
   await assert.rejects(call('rina','set_role',{id:actors.rina,role:''}),/own role/);
-  await call('rina','set_role',{id:actors.devon,role:'admin'});
+  // Promotions are invitations the member accepts.
+  await assert.rejects(call('rina','set_role',{id:actors.devon,role:'admin'}),/Send an invitation/);
+  await call('rina','invite_role',{id:actors.devon,role:'admin'});
+  await call('devon','answer_role',{id:(await call('devon','bootstrap')).roleInvite.id,accept:true});
   assert.equal((await call('devon','admin')).members > 0,true);
-  await call('devon','set_role',{id:actors.jamal,role:'moderator'});
+  await call('devon','invite_role',{id:actors.jamal,role:'moderator'});
+  await call('jamal','answer_role',{id:(await call('jamal','bootstrap')).roleInvite.id,accept:true});
   assert.equal((await call('jamal','bootstrap')).staff,'moderator');
   await call('rina','set_role',{id:actors.jamal,role:''});
   assert.equal((await call('jamal','bootstrap')).staff,null);

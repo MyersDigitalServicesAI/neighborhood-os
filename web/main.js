@@ -16,7 +16,7 @@ const app = document.querySelector('#app');
 const notice = document.querySelector('#notice');
 const authRoutes = new Set(['login','signup','recover','link-expired','reset-password']);
 const guarded = new Set(['feed','requests','new','post','directory','business','business-new','business-edit','inbox','thread',
-  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events','flyers','flyer','roster']);
+  'compose','account','manage','my-reviews','moderation','market','notifications','search','neighbor','map','admin','host','host-session','guide','events','flyers','flyer','roster','team-message','question']);
 const feedKinds = new Set(['discussion','event','alert','lost','poll','offer']);
 let config = {configured:false,signups:false,billing:false,local:false};
 let context = null;
@@ -219,7 +219,7 @@ async function render() {
         const kind = page === 'requests' ? 'request' : feedKinds.has(arg) ? arg : '';
         const [items,alerts,pinned] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope}),
           kind ? [] : rpc('pinned',{scope})]);
-        content = view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby,member.name,pinned);
+        content = (page === 'feed' && !kind ? view.teamPrompts(context) : '')+view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby,member.name,pinned);
         aside = view.feedAside(area,context.member,context);
         break;
       }
@@ -329,6 +329,15 @@ async function render() {
       case 'host-session':
         page = 'account';
         content = view.hostSessionView(await rpc('checkin_host',{id}));
+        break;
+      case 'team-message':
+        page = 'admin';
+        if (context.staff !== 'admin') throw new ApiError(403,'Only admins can message as the Nabora team.');
+        content = view.teamMessageView(id,params.get('to'));
+        break;
+      case 'question':
+        page = 'admin';
+        content = view.questionView(await rpc('team_question',{id}));
         break;
       case 'roster': {
         page = 'admin';
@@ -556,6 +565,29 @@ async function submit(operation,data,element) {
       await sync();
       show(result.already ? 'Checked in. Thanks for coming.' : 'You’re checked in and verified. Welcome!');
       return go('account');
+    case 'invite_role':
+      show('Invitation sent. They’ll get a message and can accept from their feed.');
+      return render();
+    case 'cancel_role_invite':
+      show('Invitation canceled.');
+      return render();
+    case 'answer_role':
+      await sync();
+      show(result.accepted ? 'Welcome to the team. You’re now '+(result.role==='admin'?'an admin':'a moderator')+'.' : 'No problem. The invitation is declined.');
+      return render();
+    case 'team_message':
+      show('Message sent.');
+      return go('thread/'+result.id);
+    case 'ask_question':
+      show('Question sent to '+result.recipients+' '+(result.recipients===1?'member':'members')+'.');
+      return go('question/'+result.id);
+    case 'close_question':
+      show('Question closed.');
+      return render();
+    case 'answer_question':
+      await sync();
+      show('Thanks! Your answer went to the Nabora team.');
+      return render();
     case 'create_flyer':
       show('Flyer ready. Print it, cut along the dotted lines, and post it.');
       return go('flyer/'+result.id);
