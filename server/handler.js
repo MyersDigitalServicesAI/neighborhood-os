@@ -16,7 +16,7 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
   'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events',
-  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest','roster']);
+  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest','roster','invite_role','answer_role','cancel_role_invite','team_message','ask_question','team_questions','team_question','close_question','answer_question']);
 // Operations that can queue an email; the queue is drained right after them.
 const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
 // Operations that can queue a phone notification; those are sent right after them too.

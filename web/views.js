@@ -467,7 +467,7 @@ export function threadView(thread,me) {
       field('Your message','body',{type:'textarea',min:1,max:1800})+button('Send message','primary','arrow')))+'</section>';
 }
 export function bubble(m,me) {
-  return '<div class="bubble '+(m.sender_id===me?'mine':'')+'"><p class="post-text">'+esc(m.body)+'</p><small>'+esc(date(m.created_at))+'</small></div>';
+  return '<div class="bubble '+(m.sender_id===me?'mine':'')+'">'+(m.team?'<span class="team-label">From the Nabora team</span>':'')+'<p class="post-text">'+esc(m.body)+'</p><small>'+esc(date(m.created_at))+'</small></div>';
 }
 function residencyPanel(context) {
   const state = context.residency;
@@ -610,9 +610,10 @@ export function adminView(data,areas,created) {
     '<details><summary>Add a host</summary>'+form('set_host',select('Member','id',data.team.map((m)=>[m.id,m.name+' · '+m.area]),'','Choose a member')+
       select('Neighborhood they host','area',areas.map((a)=>[a.id,a.name]),'','Choose a neighborhood')+button('Add host','outline','plus'))+'</details>'+
     '<div class="inline-actions">'+action('Run a check-in yourself','host','outline','pin')+'</div></section>'+
-    '<section class="detail-section"><h2>Team</h2><p class="quiet">Moderators handle reports, reviews, appeals, vetting and postcards. Appeals need a second moderator, so aim for at least two.</p>'+
+    '<section class="detail-section" id="team"><h2>Team</h2><p class="quiet">Moderators handle reports, reviews, appeals, vetting and postcards. Appeals need a second moderator, so aim for at least two.</p>'+
     '<div class="cards">'+data.team.map((m)=>'<article class="card panel admin-row"><div><strong>'+esc(m.name)+(m.me?' (you)':'')+'</strong><small>'+esc(m.area)+(m.role?' · '+roleLabel[m.role]:'')+'</small></div>'+
-      (m.me ? '' : form('set_role',hidden('id',m.id)+select('Role for '+m.name,'role',[['','Member'],['moderator','Moderator'],['admin','Admin']],m.role ?? '')+button('Save','outline')))+'</article>').join('')+'</div></section>';
+      (m.me ? '' : '<div class="inline-actions">'+teamControls(m,data.roleInvites ?? [])+'</div>')+'</article>').join('')+'</div></section>'+
+    questionsSection(data,areas);
 }
 export function manageView(list,billing) {
   return back('Back to account','account')+heading('LOCAL BUSINESS','Manage business profiles','Free profiles let you show up locally, share updates and reply to service requests.',action('Add a profile','business-new','primary','plus'))+
@@ -930,10 +931,10 @@ export function rosterView(members) {
       '<button class="button outline" type="button" data-csv="roster">Download CSV</button></span>')+
     '<p class="notice-box">These emails are private. Use them only to run Nabora, never for unrelated marketing, and never share them. Members who switched off email notices shouldn’t get bulk email from you either.</p>'+
     '<div class="roster-areas">'+areasSorted.map(([a,n])=>'<span class="chip">'+esc(a)+' · '+n+'</span>').join('')+'</div>'+
-    '<div class="roster-wrap"><table class="roster" id="roster-table"><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Neighborhood</th><th scope="col">Joined</th><th scope="col">Verified</th><th scope="col">Role</th><th scope="col">Emails</th></tr></thead><tbody>'+
+    '<div class="roster-wrap"><table class="roster" id="roster-table"><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Neighborhood</th><th scope="col">Joined</th><th scope="col">Verified</th><th scope="col">Role</th><th scope="col">Emails</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead><tbody>'+
     members.map((m)=>'<tr><td><a href="#neighbor/'+ref(m.id)+'">'+esc(m.name)+'</a></td><td><a href="mailto:'+esc(m.email)+'">'+esc(m.email)+'</a></td><td>'+esc(m.area)+'</td>'+
       '<td>'+esc(date(m.joined))+'</td><td>'+(m.verified?'Yes ('+esc(verifiedVia[m.verified_via] ?? 'yes')+')':'No')+'</td><td>'+esc(roleNames[m.role] ?? 'Member')+'</td>'+
-      '<td>'+(m.email_notices?(m.digest===false?'On (no digest)':'On'):'Off')+'</td></tr>').join('')+
+      '<td>'+(m.email_notices?(m.digest===false?'On (no digest)':'On'):'Off')+'</td><td><a class="button outline small-button" href="#team-message/'+ref(m.id)+'?to='+encodeURIComponent(m.name)+'">Message</a></td></tr>').join('')+
     '</tbody></table></div>';
 }
 export function rosterCsv(members) {
@@ -941,4 +942,47 @@ export function rosterCsv(members) {
   const rows = [['Name','Email','Neighborhood','Joined','Verified','Verified by','Role','Email notices','Weekly digest','Last signed in'],
     ...members.map((m)=>[m.name,m.email,m.area,String(m.joined).slice(0,10),m.verified?'yes':'no',m.verified_via ?? '',m.role ?? 'member',m.email_notices?'on':'off',m.digest===false?'off':'on',String(m.last_seen ?? '').slice(0,10)])];
   return rows.map((r)=>r.map(cell).join(',')).join('\r\n')+'\r\n';
+}
+
+// Team tools: role invitations, team messages and questions to members.
+function teamControls(m,invites) {
+  const pending = invites.find((i)=>i.member_id===m.id);
+  if (pending) return '<span class="chip">Invited as '+esc(roleLabel[pending.role] ?? pending.role)+'</span>'+form('cancel_role_invite',hidden('id',pending.id)+button('Cancel invitation','ghost'));
+  const invite = (role,label) => form('invite_role',hidden('id',m.id)+hidden('role',role)+button(label,'outline'));
+  const message = action('Message','team-message/'+ref(m.id)+'?to='+encodeURIComponent(m.name),'ghost','inbox');
+  if (m.role === 'admin') return form('set_role',hidden('id',m.id)+hidden('role','moderator')+button('Make moderator','ghost'))+form('set_role',hidden('id',m.id)+hidden('role','')+button('Remove role','ghost'))+message;
+  if (m.role === 'moderator') return invite('admin','Invite to be an admin')+form('set_role',hidden('id',m.id)+hidden('role','')+button('Remove role','ghost'))+message;
+  return invite('moderator','Invite as moderator')+invite('admin','Invite as admin')+message;
+}
+function questionsSection(data,areas) {
+  const questions = data.questions ?? [];
+  return '<section class="card panel" id="ask"><h2>Ask members a question</h2><p class="quiet">Ask one person, a neighborhood or everyone. They answer from their feed, and people with email notices on get an email. For a private back-and-forth, use Message instead.</p>'+
+    form('ask_question',select('Who to ask','audience',[['all','Everyone'],['area','One neighborhood'],['member','One member']],'all')+
+      select('Neighborhood (if one neighborhood)','area',[['',''],...areas.map((a)=>[a.id,a.name])],'')+
+      select('Member (if one member)','member',[['',''],...data.team.filter((m)=>!m.me).map((m)=>[m.id,m.name+' · '+m.area])],'')+
+      field('Your question','question',{type:'textarea',min:10,max:500,placeholder:'What would make you post on Nabora more often?'})+button('Send question','primary','arrow'))+'</section>'+
+    '<section class="detail-section"><h2>Questions <small>'+questions.length+'</small></h2>'+(questions.length?'<div class="cards">'+questions.map((q)=>
+      '<a class="card panel admin-row" href="#question/'+ref(q.id)+'"><div><strong>'+esc(q.question)+'</strong><small>'+esc(q.audience+' · '+date(q.created_at)+' · '+q.answers+' of '+q.recipients+' answered'+(q.closed_at?' · closed':''))+'</small></div>'+icon('arrow',18)+'</a>').join('')+'</div>':'<p class="quiet">No questions yet.</p>')+'</section>';
+}
+export function teamMessageView(id,name) {
+  return back('Back to admin','admin')+heading('FROM THE NABORA TEAM','Message '+(name || 'a member'),'This starts a private conversation labeled “From the Nabora team”. They get a notification, and an email if their email notices are on.')+
+    '<section class="card panel">'+form('team_message',hidden('id',id)+field('Your message','body',{type:'textarea',min:1,max:1800})+button('Send message','primary','arrow'))+'</section>';
+}
+export function questionView(q) {
+  return back('Back to admin','admin')+heading('QUESTION · '+q.audience.toUpperCase(),q.question,q.answers.length+' of '+q.recipients+' answered · asked '+date(q.created_at)+(q.closed_at?' · closed':''),
+      q.closed_at?'':form('close_question',hidden('id',q.id)+button('Close question','outline')))+
+    (q.answers.length?'<div class="cards">'+q.answers.map((a)=>'<article class="card panel"><div class="split"><strong>'+esc(a.name)+'</strong><small class="quiet">'+esc(a.area+' · '+date(a.answered_at))+'</small></div>'+
+      '<p class="post-text">'+esc(a.answer)+'</p><div class="inline-actions">'+action('Reply privately','team-message/'+ref(a.member_id)+'?to='+encodeURIComponent(a.name),'ghost','inbox')+'</div></article>').join('')+'</div>':
+      blank('chat','No answers yet','Answers show up here as members reply from their feed.'));
+}
+// Shown at the top of a member's feed: a pending role invitation and open team questions.
+export function teamPrompts(context) {
+  const invite = context.roleInvite;
+  const questions = context.teamQuestions ?? [];
+  return (invite?'<section class="card panel team-prompt"><p class="eyebrow">INVITATION</p><h2>'+esc((invite.from ?? 'The Nabora team')+' invited you to be '+(invite.role==='admin'?'an admin':'a moderator'))+'</h2>'+
+      (invite.note?'<p class="post-text">“'+esc(invite.note)+'”</p>':'')+
+      '<p class="small">'+(invite.role==='admin'?'Admins manage members, invites, roles and settings, and can see member emails.':'Moderators review reports, reviews, appeals and business vetting.')+' You can step down anytime.</p>'+
+      '<div class="inline-actions">'+form('answer_role',hidden('id',invite.id)+hidden('accept','true')+button('Accept','primary','check'))+form('answer_role',hidden('id',invite.id)+hidden('accept','false')+button('No thanks','ghost'))+'</div></section>':'')+
+    questions.map((q)=>'<section class="card panel team-prompt"><p class="eyebrow">THE NABORA TEAM ASKS</p><h2>'+esc(q.question)+'</h2>'+
+      form('answer_question',hidden('id',q.id)+field('Your answer','answer',{type:'textarea',min:1,max:1000,hint:'Only the Nabora team sees your answer.'})+button('Send answer','primary','arrow'))+'</section>').join('');
 }
