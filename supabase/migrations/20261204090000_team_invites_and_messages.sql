@@ -102,11 +102,14 @@ begin
     return result || jsonb_build_object('messages',(select coalesce(jsonb_agg(e.value || jsonb_build_object('team',coalesce(m.team,false)) order by e.ordinality),'[]'::jsonb)
       from jsonb_array_elements(result->'messages') with ordinality e left join neighborhood.messages m on m.id = (e.value->>'id')::uuid));
   elsif op = 'answer_role' then
-    select * into inv from neighborhood.role_invites i where i.id = item and i.member_id = actor and i.decided_at is null for update;
+    -- Only the invitee can answer, and only while the admin who sent it is still an admin.
+    select * into inv from neighborhood.role_invites i where i.id = item and i.member_id = actor and i.decided_at is null
+      and exists(select 1 from neighborhood.staff s where s.user_id = i.invited_by and s.role = 'admin') for update;
     if not found then raise exception 'This invitation is no longer open.' using errcode = '42501'; end if;
     update neighborhood.role_invites set decided_at = now(),accepted = (d->>'accept')::boolean is true where id = inv.id;
     if (d->>'accept')::boolean is true then
-      insert into neighborhood.staff(user_id,role) values(actor,inv.role) on conflict(user_id) do update set role = excluded.role;
+      insert into neighborhood.staff(user_id,role) values(actor,inv.role) on conflict(user_id) do update set role = excluded.role
+        where neighborhood.staff.role <> 'admin';
     end if;
     insert into neighborhood.audit(actor,action,subject,details) values(actor,op,inv.id,jsonb_build_object('role',inv.role,'accepted',(d->>'accept')::boolean is true));
     return jsonb_build_object('ok',true,'accepted',(d->>'accept')::boolean is true,'role',inv.role);
@@ -118,6 +121,7 @@ begin
     if not found then raise exception 'This question is closed or already answered.' using errcode = '42501'; end if;
     return jsonb_build_object('ok',true);
   elsif op = 'admin' then
+    if not is_admin then raise exception 'Admin access is required.' using errcode = '42501'; end if;
     result := neighborhood.dispatch16(op,d);
     return result || jsonb_build_object(
       'roleInvites',(select coalesce(jsonb_agg(jsonb_build_object('id',i.id,'member_id',i.member_id,'name',m.name,'role',i.role,'created_at',i.created_at) order by i.created_at desc),'[]'::jsonb)
@@ -138,7 +142,10 @@ begin
     if nullif(d->>'role','') is not null and (member_role is null or (member_role = 'moderator' and d->>'role' = 'admin')) then
       raise exception 'Send an invitation instead. They become a moderator or admin when they accept.';
     end if;
-    return neighborhood.dispatch16(op,d);
+    result := neighborhood.dispatch16(op,d);
+    -- Removing or lowering a role also withdraws any invitation they haven't answered yet.
+    update neighborhood.role_invites set decided_at = now(),accepted = false where member_id = item and decided_at is null;
+    return result;
   elsif op = 'invite_role' then
     perform neighborhood.limit_action(actor,op,30);
     if coalesce(d->>'role','') not in ('moderator','admin') then raise exception 'Choose moderator or admin.'; end if;
@@ -166,7 +173,7 @@ begin
     insert into neighborhood.audit(actor,action,subject,details) values(actor,op,item,'{}'::jsonb);
     return jsonb_build_object('id',convo,'ok',true);
   elsif op = 'ask_question' then
-    perform neighborhood.limit_action(actor,op,20);
+    perform neighborhood.limit_action(actor,op,5);
     if char_length(btrim(coalesce(d->>'question',''))) not between 10 and 500 then raise exception 'Write a question between 10 and 500 characters.'; end if;
     if coalesce(d->>'audience','') not in ('all','area','member') then raise exception 'Choose who to ask.'; end if;
     if d->>'audience' = 'area' and not exists(select 1 from neighborhood.areas a where a.id = d->>'area') then raise exception 'Choose a neighborhood.'; end if;

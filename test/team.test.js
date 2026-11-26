@@ -42,6 +42,34 @@ test('a member becomes a moderator only after accepting an invitation; removing 
   assert.ok(audit.length >= 4);
 });
 
+test('invitations close when the inviter loses admin or the member’s role is removed, and never demote an admin',async()=>{
+  await assert.rejects(call('devon','admin'),/Admin access/,'moderators can’t open the admin page');
+  // Rina makes a second admin, who invites Ava, then loses admin before Ava answers.
+  await call('rina','invite_role',{ id:actors.jamal,role:'admin' });
+  await call('jamal','answer_role',{ id:(await call('jamal','bootstrap')).roleInvite.id,accept:true });
+  await call('jamal','invite_role',{ id:actors.ava,role:'admin' });
+  const stale = (await call('ava','bootstrap')).roleInvite;
+  await call('rina','set_role',{ id:actors.jamal,role:'' });
+  await assert.rejects(call('ava','answer_role',{ id:stale.id,accept:true }),/no longer open/,'the inviter is no longer an admin');
+  assert.equal((await call('ava','bootstrap')).staff,null);
+
+  // Removing a role withdraws a pending invitation.
+  await call('rina','invite_role',{ id:actors.ava,role:'moderator' });
+  await call('ava','answer_role',{ id:(await call('ava','bootstrap')).roleInvite.id,accept:true });
+  await call('rina','invite_role',{ id:actors.ava,role:'admin' });
+  const pending = (await call('ava','bootstrap')).roleInvite;
+  await call('rina','set_role',{ id:actors.ava,role:'' });
+  await assert.rejects(call('ava','answer_role',{ id:pending.id,accept:true }),/no longer open/);
+  assert.equal((await call('ava','bootstrap')).staff,null);
+
+  // An old moderator invitation can’t lower someone who became an admin in the meantime.
+  const stored = await db.query("insert into neighborhood.role_invites(member_id,role,invited_by) values($1,'moderator',$2) returning id",[actors.jamal,actors.rina]);
+  await db.query("insert into neighborhood.staff(user_id,role) values($1,'admin') on conflict(user_id) do update set role = 'admin'",[actors.jamal]);
+  await call('jamal','answer_role',{ id:stored.rows[0].id,accept:true });
+  assert.equal((await call('jamal','bootstrap')).staff,'admin');
+  await db.query('delete from neighborhood.staff where user_id = $1',[actors.jamal]);
+});
+
 test('admins message any member as the Nabora team, in any neighborhood, unless the member blocked them',async()=>{
   await assert.rejects(call('ava','team_message',{ id:actors.taylor,body:'Hi' }),/Admin access/);
   // Taylor lives in Parma, outside Rina's neighborhood, and has never talked to Rina.
