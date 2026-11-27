@@ -788,3 +788,34 @@ test('an admin invites a moderator who accepts, messages a member as the team, a
   await expect(page.getByText('Jamal R.',{exact:true})).toBeVisible();
   await page.screenshot({path:'test-results/team-question.png',fullPage:true});
 });
+
+test('a member sends feedback from their account page and an admin reads it, replies and marks it handled',async({page})=>{
+  await page.setViewportSize({width:390,height:844});
+  const errors = [];
+  page.on('pageerror',(e)=>errors.push(e.message));
+  await login(page,'jamal');
+  await page.goto('/#map');
+  await page.goto('/#account');
+  const panel = page.locator('#feedback-panel');
+  await panel.getByLabel('What is it about?').selectOption('bug');
+  await panel.getByLabel('Your message').fill('The map takes a long time to load on my phone.');
+  await panel.getByRole('button',{name:'Send feedback'}).click();
+  await expect(page.getByText('Thanks! Your feedback went to the Nabora team.')).toBeVisible();
+  await expect(panel.getByLabel('Your message')).toHaveValue('');
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
+  await logout(page);
+
+  await login(page,'rina');
+  await page.goto('/#admin');
+  await page.getByRole('link',{name:/Feedback \(\d+ new\)/}).click();
+  const item = page.locator('.feedback-item',{hasText:'The map takes a long time to load on my phone.'});
+  await expect(item).toContainText('Something isn’t working');
+  await expect(item).toContainText('Jamal R.');
+  await expect(item).toContainText('From #map');
+  await page.screenshot({path:'test-results/feedback-admin.png',fullPage:true});
+  await item.getByRole('button',{name:'Mark handled'}).click();
+  await expect(item).toContainText('Handled by Rina P.');
+  await item.getByRole('link',{name:'Reply privately'}).click();
+  await expect(page.getByRole('heading',{name:'Message Jamal R.'})).toBeVisible();
+  expect(errors).toEqual([]);
+});

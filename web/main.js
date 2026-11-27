@@ -142,9 +142,20 @@ function setEvidence(formNode) {
   for (const field of container.querySelectorAll('input')) field.disabled = !enabled;
 }
 
+// The last page a member looked at before Account, sent with feedback so a bug can be found again.
+let lastPage = '';
+// A short, non-identifying device description for feedback: kind of device, browser, and whether it is the installed app.
+function deviceSummary() {
+  const ua = navigator.userAgent;
+  const device = /iPhone|iPad/.test(ua) ? 'iPhone or iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : 'Other device';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Chrome\//.test(ua) ? 'Chrome' : /Firefox\//.test(ua) ? 'Firefox' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+  const app = matchMedia('(display-mode: standalone)').matches ? ' · installed app' : '';
+  return device+' · '+browser+app+' · '+window.innerWidth+'px wide';
+}
 async function render() {
   const current = ++version;
   const {key,arg,params} = route();
+  if (key && key !== 'account') lastPage = location.hash.slice(0,200);
   const signedIn = !!context;
   let content;
   let page = key;
@@ -344,6 +355,11 @@ async function render() {
         page = 'admin';
         content = view.questionView(await rpc('team_question',{id}));
         break;
+      case 'feedback':
+        page = 'admin';
+        if (context.staff !== 'admin') throw new ApiError(403,'Only admins can read member feedback.');
+        content = view.feedbackView((await rpc('feedback')).items);
+        break;
       case 'roster': {
         page = 'admin';
         if (context.staff !== 'admin') throw new ApiError(403,'Only admins can see the member roster.');
@@ -519,6 +535,7 @@ async function submit(operation,data,element) {
     data.when = starts.toISOString();
   }
   if (operation === 'join' && storedCheckin() && !data.invite) data.checkin = storedCheckin();
+  if (operation === 'send_feedback') { data.page = lastPage; data.device = deviceSummary(); }
   const result = await rpc(operation,data);
   if (result?.ok === false) throw new ApiError(400,result.message ?? 'Try again.');
   if (!element.isConnected) return;
@@ -588,6 +605,12 @@ async function submit(operation,data,element) {
       return go('question/'+result.id);
     case 'close_question':
       show('Question closed.');
+      return render();
+    case 'send_feedback':
+      element.reset();
+      show('Thanks! Your feedback went to the Nabora team.');
+      return;
+    case 'resolve_feedback':
       return render();
     case 'answer_question':
       await sync();
