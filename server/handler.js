@@ -16,9 +16,11 @@ const appOperations = new Set(['bootstrap','join','feed','post','create_post','c
   'request_residency','cancel_residency','confirm_residency','decide_residency','map',
   'invite_info','set_email_notices','admin','admit','create_invite','revoke_invite','set_role',
   'vouch','unvouch','checkin_info','checkin','create_checkin','checkins','checkin_host','end_checkin','undo_checkin','set_host','waive_fee','set_vetter','pinned','pin_post','unpin_post','guide','save_guide_item','hide_guide_item','events',
-  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest','roster','invite_role','answer_role','cancel_role_invite','team_message','ask_question','team_questions','team_question','close_question','answer_question']);
-// Operations that can queue an email; the queue is drained right after them.
-const mailOperations = new Set(['reply','message','create_post','admit','create_invite']);
+  'claim_food','save_food','decide_food_claim','save_push','remove_push','flyers','create_flyer','revoke_flyer','set_digest','roster','invite_role','answer_role','cancel_role_invite','team_message','ask_question','team_questions','team_question','close_question','answer_question','send_feedback','feedback','resolve_feedback']);
+// Operations that can queue an email; the queue is drained right after them, so mail goes out in seconds rather than
+// waiting for the daily job.
+const mailOperations = new Set(['reply','message','create_post','admit','create_invite','join','team_message','ask_question',
+  'invite_role','send_feedback']);
 // Operations that can queue a phone notification; those are sent right after them too.
 const pushOperations = new Set(['reply','message','create_post','rsvp']);
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -181,6 +183,8 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
           if (!code || !verifier) throw new Error('Missing confirmation');
           session(res,await database.exchange(code,verifier));
           res.setHeader('Location',flow === 'recover' ? '/#reset-password' : '/');
+          // Confirming an email unlocks mail that was waiting for it, such as the welcome; send it now.
+          if (mailer.enabled) await deliver(database,mailer,{ budget:4000,limit:5 }).catch(() => {});
         } catch {
           res.setHeader('Location','/#link-expired');
         }

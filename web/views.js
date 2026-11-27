@@ -538,6 +538,10 @@ export function accountView(context) {
       (context.emailNotices ? form('set_digest',hidden('on',context.digest===false?'true':'false')+'<p class="small">'+(context.digest===false ?
         'The weekly digest is off.' : 'Every Thursday evening you get “This week in your neighborhood”: the most-talked-about posts and the week’s events. Skipped on quiet weeks.')+'</p>'+
         button(context.digest===false?'Turn on the weekly digest':'Turn off the weekly digest','outline')) : '')+'</section>'+
+    '<section class="card panel" id="feedback-panel"><h2>Send feedback to the Nabora team</h2><p class="quiet">Something not working, an idea, or a problem with a post or person? Your name goes with it so the team can reply to you privately.</p>'+
+      form('send_feedback',select('What is it about?','kind',[['bug','Something isn’t working'],['idea','An idea or request'],['problem','A problem with a post or person'],['other','Something else']],'','Choose one')+
+        field('Your message','body',{type:'textarea',min:10,max:2000,placeholder:'What happened, or what would make Nabora better?'})+hidden('page','')+hidden('device','')+
+        button('Send feedback','primary','arrow'))+'</section>'+
     '<section class="card panel"><h2>Account access</h2>'+form('logout',button('Sign out','outline'))+
       '<details class="danger"><summary>Delete my account</summary><p class="small">This permanently deletes your account and everything you posted: posts, replies, messages, reviews, photos and business profiles. It cannot be undone.</p>'+
       form('delete_account',field('Type DELETE to confirm','confirm',{min:6,max:6,autocomplete:'off',extra:'autocapitalize="characters" spellcheck="false"'})+
@@ -556,7 +560,7 @@ export function adminView(data,areas,created) {
       : (j.confirmation_sent_at?' · confirmation email sent '+date(j.confirmation_sent_at):'')))+'</small></div>'+
     '<button class="button ghost" type="button" data-copy="'+esc(j.email)+'" data-copied="Email copied.">Copy email</button></article>';
   return heading('ADMIN','People and invites',data.members+' members · '+unchosen.length+' confirmed but haven’t chosen a neighborhood · '+unconfirmed.length+' haven’t confirmed their email'+(data.pending.length?' · '+data.pending.length+' waiting':''),
-      action('Member roster','roster','outline','user'))+
+      action('Member roster','roster','outline','user')+action('Feedback'+(data.feedbackOpen?' ('+data.feedbackOpen+' new)':''),'feedback',data.feedbackOpen?'primary':'outline','chat'))+
     '<section class="detail-section"><h2>Confirmed, haven’t chosen a neighborhood <small>'+unchosen.length+'</small></h2><p class="quiet">They can sign in now. One more step: choosing a neighborhood. Nabora emails each of them one reminder 48 hours after they confirm. A personal text works even better.</p>'+
       (unchosen.length?'<div class="cards">'+unchosen.map(joinRow).join('')+'</div>':'<p class="quiet">Nobody right now.</p>')+'</section>'+
     '<section class="detail-section"><h2>Haven’t confirmed their email <small>'+unconfirmed.length+'</small></h2><p class="quiet">They can’t sign in until they click the link in their confirmation email. Ask them to check spam, or to sign up again with the same email to get a fresh link.</p>'+
@@ -989,4 +993,19 @@ export function teamPrompts(context) {
       '<div class="inline-actions">'+form('answer_role',hidden('id',invite.id)+hidden('accept','true')+button('Accept','primary','check'))+form('answer_role',hidden('id',invite.id)+hidden('accept','false')+button('No thanks','ghost'))+'</div></section>':'')+
     questions.map((q)=>'<section class="card panel team-prompt"><p class="eyebrow">THE NABORA TEAM ASKS</p><h2>'+esc(q.question)+'</h2>'+
       form('answer_question',hidden('id',q.id)+field('Your answer','answer',{type:'textarea',min:1,max:1000,hint:'Only the Nabora team sees your answer.'})+button('Send answer','primary','arrow'))+'</section>').join('');
+}
+
+// Admin-only list of member feedback, newest open items first.
+const feedbackKinds = { bug:'Something isn’t working', idea:'Idea or request', problem:'Problem with a post or person', other:'Something else' };
+export function feedbackView(items = []) {
+  const open = items.filter((f)=>f.open);
+  const card = (f) => '<article class="card panel feedback-item'+(f.open?'':' handled')+'"><div class="split"><strong>'+esc(feedbackKinds[f.kind] ?? f.kind)+'</strong>'+
+      '<small class="quiet">'+esc(f.name+' · '+f.area+' · '+date(f.created_at))+'</small></div>'+
+    '<p class="post-text">'+esc(f.body)+'</p>'+
+    (f.page||f.device?'<p class="small quiet">'+esc([f.page?'From '+f.page:'',f.device].filter(Boolean).join(' · '))+'</p>':'')+
+    (f.open?'':'<p class="small quiet">'+esc('Handled'+(f.resolved_by?' by '+f.resolved_by:'')+' · '+date(f.resolved_at))+'</p>')+
+    '<div class="inline-actions">'+action('Reply privately','team-message/'+ref(f.member_id)+'?to='+encodeURIComponent(f.name),'outline','inbox')+
+      form('resolve_feedback',hidden('id',f.id)+(f.open?'':hidden('open','true'))+button(f.open?'Mark handled':'Reopen','ghost'))+'</div></article>';
+  return back('Back to admin','admin')+heading('ADMIN','Feedback',open.length+' new · '+(items.length-open.length)+' handled. Members send this from their Account page, and admins get an email for each one.')+
+    (items.length?'<div class="cards">'+items.map(card).join('')+'</div>':blank('chat','No feedback yet','When members send feedback from their Account page, it shows up here.'));
 }

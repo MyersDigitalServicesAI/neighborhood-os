@@ -56,6 +56,8 @@ export function compose(item,origin) {
     reminder:() => ['One step left to join your neighbors on Nabora',
       'You’re in, but you haven’t chosen your neighborhood yet. Sign in and pick it to see local events, safety alerts, farmers markets and what your neighbors are talking about. It takes a minute.',
       'Choose my neighborhood',link('login')],
+    feedback:() => ['New feedback on Nabora: '+(p.kind ?? 'Other'),
+      (p.from ?? 'A member')+(p.area ? ' in '+p.area : '')+' sent feedback ('+(p.kind ?? 'Other')+'): “'+(p.body ?? '')+'”','Open feedback',link('feedback')],
     invite:() => [(p.inviter ?? 'A neighbor')+' invited you to Nabora',
       (p.inviter ?? 'A neighbor')+' invited you to join your neighbors on Nabora'+(p.area ? ' in '+p.area : '')+'. Open the link in the browser you will use, create an account, and you will be let straight in.',
       'Accept the invite',link('invite/'+p.code)]
@@ -64,6 +66,7 @@ export function compose(item,origin) {
   if (!build) return null;
   const [subject,line,button,url] = build();
   const footer = item.kind === 'invite' ? 'If you were not expecting this, you can ignore it.' :
+    item.kind === 'feedback' ? 'You get this because you are a Nabora admin. Turn emails off under Account in the app: '+link('account') :
     'You get these emails because you have a Nabora account. Turn them off under Account in the app: '+link('account');
   const text = greeting+'\n\n'+line+'\n\n'+button+': '+url+'\n\n'+footer+'\n';
   const html = '<div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5;color:#182b23;max-width:520px">'+
