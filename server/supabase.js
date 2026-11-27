@@ -59,6 +59,7 @@ export function supabaseAdapter(env, request = fetch) {
     publicFood: (d) => call('/rest/v1/rpc/neighborhood_public_food', { payload: { d } }),
     mail: (d) => call('/rest/v1/rpc/neighborhood_mail', { admin: true, payload: { d } }),
     push: (d) => call('/rest/v1/rpc/neighborhood_push', { admin: true, payload: { d } }),
+    photos: (d) => call('/rest/v1/rpc/neighborhood_photos', { admin: true, payload: { d } }),
     importEvents: (d) => call('/rest/v1/rpc/neighborhood_events', { admin: true, payload: { d } }),
     syncBilling: (d) => call('/rest/v1/rpc/neighborhood_billing', { admin: true, payload: { d } })
   };
