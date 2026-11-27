@@ -53,7 +53,7 @@ jobs:
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
       - name: Install Chromium
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install --with-deps --no-shell chromium
       - name: Install Chromium system packages
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
