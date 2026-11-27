@@ -1,10 +1,15 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { initDatabase, fixtures, rpc, actors } from './db.js';
+import { initDatabase, fixtures, rpc, actors, legacy } from './db.js';
 
 let db;
 const call = (who,op,data) => rpc(db,actors[who] ?? who,op,data);
-const post = async (who,title,reach = 'area') => (await call(who,'create_post',{kind:'discussion',reach,title,body:'A post for the pinned posts tests, long enough to pass.'})).id;
+// Neighborhood-only pins are tested on posts made before the all-members feed.
+const post = async (who,title,reach = 'area') => {
+  const { id } = await call(who,'create_post',{kind:'discussion',reach,title,body:'A post for the pinned posts tests, long enough to pass.'});
+  if (reach !== 'region') await legacy(db,id,reach);
+  return id;
+};
 
 before(async()=>{
   db = await initDatabase();

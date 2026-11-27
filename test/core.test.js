@@ -1,6 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initDatabase, fixtures, rpc, sync, actors } from './db.js';
+import { initDatabase, fixtures, rpc, sync, actors, legacy } from './db.js';
 let db;
 let business;
 const call = (actor,op,data) => rpc(db,actors[actor],op,data);
@@ -38,7 +38,10 @@ test('only conversation participants see messages and blocking prevents sends bo
   assert.equal((await call('jamal','thread',{id})).messages[0].body,'Private conversation about a fixture.');
   await assert.rejects(call('luis','thread',{id}),/unavailable/);
   await assert.rejects(call('rina','thread',{id}),/unavailable/);
-  await assert.rejects(call('taylor','message',{peer:actors.ava,body:'cross-area'}),/unavailable/);
+  // Any member can message any other member, in any neighborhood.
+  const far = await call('taylor','message',{peer:actors.ava,body:'Hello from Parma.'});
+  assert.equal((await call('ava','thread',{id:far.id})).messages[0].body,'Hello from Parma.');
+  await assert.rejects(call('jamal','thread',{id:far.id}),/unavailable/);
   await call('jamal','block',{peer:actors.ava});
   await assert.rejects(call('ava','message',{id,body:'Denied message'}),/unavailable/);
   await assert.rejects(call('jamal','message',{id,body:'Denied message'}),/unavailable/);
@@ -82,6 +85,7 @@ test('local screening queues reviews, humans decide, and a different moderator d
 });
 test('posts and replies can be reported locally and removed by staff',async()=>{
   const {id} = await call('ava','create_post',{kind:'discussion',title:'Synthetic report target',body:'This post exists for the moderation regression test.'});
+  await legacy(db,id);
   await assert.rejects(call('taylor','report_content',{id,kind:'post',reason:'Cross area report must fail.'}),/unavailable/);
   await call('jamal','report_content',{id,kind:'post',reason:'Please review this synthetic post fixture.'});
   const {content} = await call('rina','moderation');

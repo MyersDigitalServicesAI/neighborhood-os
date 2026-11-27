@@ -207,8 +207,13 @@ async function render() {
   const {member} = context;
   const area = context.areas.find((a)=>a.id===member.area_id)?.name ?? 'Your neighborhood';
   const id = arg;
-  const reach = ['nearby','neo'].includes(params.get('in')) ? params.get('in') : '';
-  const scope = reach === 'neo' ? 'region' : reach;
+  // The feed opens on all of Nabora unless the member picked another view; the last pick is remembered on this device.
+  const picked = ['nearby','neo','mine'].includes(params.get('in')) ? params.get('in') : '';
+  if (picked) { try { localStorage.setItem('nabora.view',picked); } catch {} }
+  let saved = '';
+  try { saved = localStorage.getItem('nabora.view') ?? ''; } catch {}
+  const reach = picked || (['nearby','neo','mine'].includes(saved) ? saved : 'neo');
+  const scope = view.feedScope(reach);
   try {
     if (Date.now() - synced > 45000) await sync();
     switch (key) {
@@ -217,7 +222,7 @@ async function render() {
       case '': {
         page = key === 'requests' ? 'requests' : 'feed';
         const kind = page === 'requests' ? 'request' : feedKinds.has(arg) ? arg : '';
-        const [items,alerts,pinned] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope}),
+        const [items,alerts,pinned] = await Promise.all([rpc('feed',{kind,scope}),kind ? [] : rpc('feed',{kind:'alert',fresh:'1',scope:scope==='region'?'nearby':scope}),
           kind ? [] : rpc('pinned',{scope})]);
         content = (page === 'feed' && !kind ? view.teamPrompts(context) : '')+view.feedView(items,area,page,kind,alerts.slice(0,3),reach,context.nearby,member.name,pinned);
         aside = view.feedAside(area,context.member,context);

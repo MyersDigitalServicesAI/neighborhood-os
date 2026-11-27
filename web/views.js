@@ -95,7 +95,7 @@ export function information(route,signedIn) {
   const isPrivacy = route === 'privacy';
   const copy = isPrivacy ? [
     ['What your neighbors see','Your display name, the short introduction you write, and the neighborhood you choose appear with your activity. Your account email is private.'],
-    ['How far a post travels','When you post you choose who can see it: your neighborhood only, your neighborhood and nearby ones, or all of Northeast Ohio. People who can see a post can reply to it, see your profile, and message you.'],
+    ['Who sees your posts','Every Nabora member, in every neighborhood, can see what you post, reply to it, see your profile and message you. You can block anyone. Events can also go on the public events page, without your name, and you can uncheck that for private gatherings. Posts made before December 2026 keep the audience their author chose.'],
     ['Address verification','Verification is optional. If you ask for it, we keep your mailing address only until a postcard with a one-time code is sent. Marking the postcard as mailed erases the address and the code, and entering the code deletes the rest of the record. Afterwards we keep only the fact and date that you verified. Staff who post the card see the address while it is waiting. Requests that are never completed are deleted after 45 days, and you can withdraw one at any time.'],
     ['Photos','Photos are resized on your device and are visible to members of your neighborhood. Avoid photos that show house numbers, licence plates, or people who have not agreed.'],
     ['Messages and moderation','Direct messages are visible in the app only to conversation participants. They are stored to deliver the service and are not end-to-end encrypted. Review text, risk signals, reports and appeals are available to assigned staff through the moderation console.'],
@@ -169,7 +169,7 @@ export function mapPanel(picked,status,counts) {
     posts+' recent '+(posts===1?'post':'posts')+' you can see</p>'+
     (members===0?'<p class="small">Nobody has joined from here yet.</p>':'')+
     '<div class="inline-actions">'+(status==='home'?action('Open my neighborhood feed','feed','primary','home'):
-      status==='near'?action('Open the Nearby feed','feed?in=nearby','primary','pin'):action('Open the Northeast Ohio feed','feed?in=neo','outline','home'))+'</div>';
+      status==='near'?action('Open the Nearby feed','feed?in=nearby','primary','pin'):action('Open the all-members feed','feed?in=neo','outline','home'))+'</div>';
 }
 export function feedAside(area,member,context = {}) {
   const spots = context.foundingLeft ?? 0;
@@ -185,10 +185,12 @@ const feedTabs = [['feed','','All'],['feed/discussion','discussion','Discussions
   ['feed/alert','alert','Safety'],['feed/lost','lost','Lost & found'],['feed/poll','poll','Polls'],['feed/offer','offer','Local business']];
 const createFor = { event:'event', alert:'alert', lost:'lost', poll:'poll', request:'request' };
 const scopeQuery = (scope) => scope ? '?in='+scope : '';
+// Server feed scope for a view: everything members can see, the member's own neighborhood, or it plus nearby ones.
+export const feedScope = (view) => view==='neo' ? 'region' : view==='mine' ? '' : view;
 export function scopeBar(route,scope,area,nearby = []) {
-  const options = [['',area],['nearby','Nearby'],['neo','Northeast Ohio']];
+  const options = [['neo','All of Nabora'],['mine',area],['nearby','Nearby']];
   const note = scope==='nearby' ? (nearby.length ? area+' plus '+nearby.join(', ')+'.' : 'No nearby neighborhoods are linked yet.') :
-    scope==='neo' ? 'Posts shared with all of Northeast Ohio, plus everything from '+area+' and nearby.' : '';
+    scope==='neo' ? 'Posts from every neighborhood on Nabora.' : '';
   return '<div class="scope"><nav class="scope-bar" aria-label="Choose how far to look">'+options.map(([key,label])=>
     '<a href="#'+esc(route+scopeQuery(key))+'" '+(scope===key?'aria-current="page"':'')+'>'+icon(key==='neo'?'home':'pin',15)+esc(label)+'</a>').join('')+'</nav>'+
     (note?'<p class="small">'+esc(note)+'</p>':'')+'</div>';
@@ -207,13 +209,13 @@ export function feedView(posts, area, selected, filter, alerts = [], scope = '',
   const create = 'new/'+(createFor[filter] ?? 'discussion');
   return (requests ?
     heading('ASK A NEIGHBOR','Service requests','Ask for help or recommend someone you’ve worked with.',action('Request a service','new/request','primary','plus'))+scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>' :
-    '<header class="feed-top"><div class="split"><h1>Your neighborhood</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+'<div id="push-nudge"></div>'+
+    '<header class="feed-top"><div class="split"><h1>'+(scope==='neo'?'All of Nabora':'Your neighborhood')+'</h1><span class="feed-links"><a class="guide-link" href="#events">'+icon('calendar',16)+'Events</a><a class="guide-link" href="#guide">'+icon('book',16)+'Guide</a></span></div><p class="eyebrow">'+icon('pin',14)+esc(area)+' · NORTHEAST OHIO</p></header>'+composePrompt(name,area)+'<div id="push-nudge"></div>'+
     alerts.map((a)=>'<a class="alert-strip" href="#post/'+ref(a.id)+'">'+icon('alert',20)+'<span><strong>'+esc(a.title)+'</strong><small>Safety alert · '+esc(ago(a.created_at))+(a.place?' · '+esc(a.place):'')+'</small></span>'+icon('arrow',17)+'</a>').join('')+
     scopeBar(current,scope,area,nearby)+'<div class="feed-controls">'+tabs+'</div>')+
     (pinned.length ? '<section class="pinned" aria-label="Pinned posts"><h2 class="eyebrow">'+icon('pin',14)+'PINNED</h2><div class="cards">'+pinned.map(postCard).join('')+'</div></section>' : '')+
     (shown.length || pinned.length ? '<div class="cards" id="feed-results">'+shown.map(postCard).join('')+'</div>' : blank(requests?'brief':'chat',requests?'No requests yet':filter?'Nothing here yet':'Say hello to your neighbors',requests?'Post the first service request for your neighborhood.':'Start a discussion, share an event, or ask for a recommendation.',
       action(requests?'Create a request':'Create a post',create,'outline','plus')))+
-    (posts.length === 25 ? pager('feed-more',posts.at(-1),hidden('kind',filter)+hidden('scope',scope==='neo'?'region':scope)):'');
+    (posts.length === 25 ? pager('feed-more',posts.at(-1),hidden('kind',filter)+hidden('scope',feedScope(scope))):'');
 }
 export function pager(name,item,fields = '') {
   return form(name,hidden('before',item.created_at ?? item.updated_at ?? '')+hidden('cursor',item.id)+fields+button('Load more','outline'));
@@ -250,14 +252,14 @@ export function marketView(items,filter,scope = '',area = '',nearby = []) {
     scopeBar('market',scope,area,nearby)+
     (items.length ? '<div class="market-grid" id="market-results">'+items.map(marketCard).join('')+'</div>' :
       blank('tag','Nothing listed yet','List something you no longer need. Free items are welcome.',action('List an item','new/sale','outline','plus')))+
-    (items.length === 25 ? pager('market-more',items.at(-1),hidden('kind',filter)+hidden('scope',scope==='neo'?'region':scope)):'');
+    (items.length === 25 ? pager('market-more',items.at(-1),hidden('kind',filter)+hidden('scope',feedScope(scope))):'');
 }
 export function marketCard(item) {
   return '<a class="card market-card" href="#post/'+ref(item.id)+'">'+(item.image_id?photo(item.image_id,'','market-photo'):'<span class="market-photo placeholder">'+icon('tag',30)+'</span>')+
     '<span class="market-body"><strong class="price-line">'+esc(money(item.price_cents))+'</strong><span class="market-title">'+esc(item.title)+'</span>'+
     '<small>'+esc(item.author)+' · '+esc(ago(item.created_at))+where(item)+'</small>'+(item.closed?chip('Sold','','muted'):'')+'</span></a>';
 }
-const reachLabel = { area:'your neighborhood only', nearby:'your neighborhood and nearby', region:'all of Northeast Ohio' };
+const reachLabel = { area:'your neighborhood only', nearby:'your neighborhood and nearby', region:'everyone, including the public', members:'all Nabora members' };
 export function composer(type,businesses = [],area = 'My neighborhood') {
   const kinds = ['discussion','event','sale','request','lost','poll','alert',...(businesses.length?['offer']:[])];
   const kind = kinds.includes(type) ? type : 'discussion';
@@ -278,7 +280,9 @@ export function composer(type,businesses = [],area = 'My neighborhood') {
     field('Title','title',{min:3,max:120,placeholder:kind==='sale'?'What are you listing?':'What would you like neighbors to know?'})+extra+
     field('Details','body',{type:'textarea',min:3,max:2400,hint:'Keep exact addresses, phone numbers, and personal information out of your post.'})+
     (kind==='poll'?'':upload())+
-    select('Who can see this','reach',[['area',area+' only'],['nearby',area+' and nearby neighborhoods'],['region','All of Northeast Ohio']],kind==='event'?'region':'nearby')+(kind==='event'?'<p class="small reach-hint">Events shared with all of Northeast Ohio also appear on Nabora’s public events page, without your name. Choose “'+esc(area)+' only” for a private gathering like a block party.</p>':'')+
+    '<p class="small reach-hint">Every Nabora member can see this post, in every neighborhood.</p>'+
+    (kind==='event'?'<label class="check"><input name="reach" type="checkbox" value="region" checked><span>Also list it on Nabora’s public events page</span></label>'+
+      '<p class="small reach-hint">The public page shows the event without your name, and anyone can see it. Uncheck this for a private gathering like a block party.</p>':'')+
     button('Publish post','primary','arrow'))+'</section>';
 }
 function reportContent(id,kind) {
@@ -314,7 +318,7 @@ export function postView(post,me,businesses,canPin = false) {
   return back('Back to '+(home==='market'?'marketplace':home),home)+
     '<article class="card panel detail kind-'+esc(post.kind)+'"><div class="post-meta">'+byline(post)+'<span class="spacer"></span>'+(post.pinned?chip('Pinned','pin','pinned'):'')+(post.business_verified?verified():'')+chip(label,image,post.kind)+'</div>'+
     '<h1>'+esc(post.title)+'</h1>'+facts(post)+'<p class="post-text">'+esc(post.body)+'</p>'+photo(post.image_id,'Photo for '+post.title,'photo large')+
-    '<p class="fact reach">'+icon('pin',16)+esc('Posted in '+post.area+' · shared with '+(post.local?reachLabel[post.reach]:post.reach==='region'?'all of Northeast Ohio':'nearby neighborhoods'))+'</p>'+
+    '<p class="fact reach">'+icon('pin',16)+esc('Posted in '+post.area+' · shared with '+(post.local||post.reach==='members'||post.reach==='region'?reachLabel[post.reach]:'nearby neighborhoods'))+'</p>'+
     (post.kind==='poll'?pollBlock(post):'')+
     '<div class="inline-actions">'+likeButton(post)+
     (mine || post.reach==='region' ? '<button class="button outline" type="button" data-card="'+esc(JSON.stringify(shareCardData(post)))+'">'+icon('image',17)+'Share card</button>' : '')+
@@ -360,12 +364,12 @@ export function notificationsView(list) {
 }
 export function searchView(query,results) {
   const none = results && !results.posts.length && !results.businesses.length && !results.neighbors.length;
-  return heading('FIND IT NEARBY','Search','Look through posts, listings, businesses and neighbors in your neighborhood.')+
-    '<section class="card panel search-panel simple">'+form('search',field('Search your neighborhood','q',{min:2,max:80,value:query,placeholder:'Try “fence”, “bike” or a neighbor’s name'})+button('Search','outline','search'))+'</section>'+
+  return heading('FIND IT ON NABORA','Search','Look through posts, listings and businesses, and find any Nabora member by name.')+
+    '<section class="card panel search-panel simple">'+form('search',field('Search Nabora','q',{min:2,max:80,value:query,placeholder:'Try “fence”, “bike” or a neighbor’s name'})+button('Search','outline','search'))+'</section>'+
     (!results ? '' : none ? blank('search','No matches','Try a different word or a shorter search.') :
       (results.businesses.length?'<section class="detail-section"><h2>Businesses</h2><div class="business-grid">'+results.businesses.map(businessCard).join('')+'</div></section>':'')+
       (results.neighbors.length?'<section class="detail-section"><h2>Neighbors</h2><div class="cards">'+results.neighbors.map((n)=>
-        '<a class="card thread-row" href="#neighbor/'+ref(n.id)+'">'+avatar(n.name)+'<span><strong>'+esc(n.name)+tick(n.verified)+'</strong></span>'+icon('arrow',18)+'</a>').join('')+'</div></section>':'')+
+        '<a class="card thread-row" href="#neighbor/'+ref(n.id)+'">'+avatar(n.name)+'<span><strong>'+esc(n.name)+tick(n.verified)+'</strong>'+(n.area?'<small>'+esc(n.area)+'</small>':'')+'</span>'+icon('arrow',18)+'</a>').join('')+'</div></section>':'')+
       (results.posts.length?'<section class="detail-section"><h2>Posts and listings</h2><div class="cards">'+results.posts.map(postCard).join('')+'</div></section>':''));
 }
 export function profileView(profile,posts,me) {

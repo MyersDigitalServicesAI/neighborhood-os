@@ -13,7 +13,7 @@
     },
     {
       "path": "/api/core?action=events",
-      "schedule": "23 11 * * 1"
+      "schedule": "23 10 * * *"
     }
   ],
   "redirects": [

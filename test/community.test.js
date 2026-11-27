@@ -84,18 +84,21 @@ test('likes, threaded replies and safety alerts create notifications; blocks hid
   await assert.rejects(call('jamal','post',{id:post.id}),/unavailable/);
 });
 
-test('search and profiles stay inside the neighborhood',async()=>{
+test('search finds members anywhere, while businesses and older local posts stay inside the neighborhood',async()=>{
   const found = await call('ava','search',{q:'juniper'});
   assert.equal(found.businesses[0].name,'Juniper Home Repair');
   assert.equal((await call('ava','search',{q:'bookshelf'})).posts[0].kind,'sale');
   assert.deepEqual((await call('ava','search',{q:'luis'})).neighbors.map((n)=>n.name),['Luis G.']);
   assert.deepEqual(await call('taylor','search',{q:'juniper'}),{posts:[],businesses:[],neighbors:[]});
+  assert.deepEqual((await call('taylor','search',{q:'ava'})).neighbors.map((n)=>[n.name,n.area,n.local]),[['Ava M.','Old Brooklyn',false]],'members are found by name in any neighborhood');
   await assert.rejects(call('ava','search',{q:'a'}),/two characters/);
   await call('ava','update_profile',{name:'Ava M.',bio:'Gardener on the west side.'});
   const profile = await call('jamal','profile',{id:actors.ava});
   assert.deepEqual([profile.name,profile.bio,profile.verified],['Ava M.','Gardener on the west side.',false]);
   assert.equal((await call('ava','profile',{id:actors.luis})).businesses[0].name,'Juniper Home Repair');
-  assert.equal(await call('taylor','profile',{id:actors.ava}),null);
+  const far = await call('taylor','profile',{id:actors.ava});
+  assert.deepEqual([far.name,far.area,far.blocked,far.canVouch],['Ava M.','Old Brooklyn',false,false],'any member’s profile opens');
+  assert.equal(await call('taylor','profile',{id:'00000000-0000-4000-a000-0000000000ff'}),null,'only real members');
   await assert.rejects(call('ava','update_profile',{name:'A',bio:''}));
 });
 
