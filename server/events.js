@@ -22,6 +22,14 @@ export function plain(html = '') {
     .replace(/&(#\d+|#x[0-9a-f]+|[a-z]+);/gi,(all,code)=>code[0]==='#' ? String.fromCodePoint(code[1].toLowerCase()==='x' ? parseInt(code.slice(2),16) : Number(code.slice(1))) : entities[code.toLowerCase()] ?? all)
     .replace(/[ \t ]+/g,' ').replace(/ *\n */g,'\n').replace(/\n{3,}/g,'\n\n').trim();
 }
+// Event descriptions sometimes name a staff member with their own email address ("email or call Kathleen at …").
+// Nabora never reposts a person's contact details: any sentence with an email address is dropped. The organizer's
+// event link stays, so neighbors can still find out more.
+const email = /[\w.+-]+@[\w-]+(\.[\w-]+)+/;
+export function withoutContacts(text = '') {
+  return String(text).split('\n').map((line)=>line.split(/(?<=[.!?])\s+/).filter((sentence)=>!email.test(sentence)).join(' '))
+    .join('\n').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim();
+}
 const clip = (text,max) => text.length > max ? text.slice(0,max - 1).replace(/\s+\S*$/,'')+'…' : text;
 // Library times are Cleveland local time; turn them into an exact instant.
 export function clevelandTime(local) {
@@ -48,7 +56,7 @@ export function pickLibrary(results) {
       source_url: e.url,
       branch,
       title: clip(e.title.trim()+' at the '+branch+' library',120),
-      body: clip(plain(e.description || e.shortdesc),900)+'\n\n'+(sale ? 'At' : 'Free at')+' the '+branch+' branch of Cleveland Public Library, '+
+      body: clip(withoutContacts(plain(e.description || e.shortdesc)),900)+'\n\n'+(sale ? 'At' : 'Free at')+' the '+branch+' branch of Cleveland Public Library, '+
         e.start+(e.end ? ' to '+e.end : '')+'. Details and any sign-up: '+e.url,
       place: 'Cleveland Public Library, '+branch+' branch',
       starts_at: clevelandTime(e.startdt)
@@ -75,7 +83,7 @@ export function pickCounty(list) {
       area: countyBranches[e.library],
       source_url: e.url,
       title: clip(String(e.title).trim()+' at the '+branch+' library',120),
-      body: clip(plain(e.long_description || e.description),900)+'\n\nFree at the '+branch+' branch of Cuyahoga County Public Library, '+
+      body: clip(withoutContacts(plain(e.long_description || e.description)),900)+'\n\nFree at the '+branch+' branch of Cuyahoga County Public Library, '+
         e.datestring+', '+e.time_string+'. Details and any sign-up: '+e.url,
       place: 'Cuyahoga County Public Library, '+branch+' branch',
       starts_at: clevelandTime(e.event_start)
@@ -93,7 +101,7 @@ export function pickCouncil(html) {
       const ward = Number(e.title.match(/Ward (\d+)/)[1]);
       const link = 'https://www.clevelandcitycouncil.gov'+(e.extendedProps?.url ?? '');
       return { ward, source_url: link, title: clip(e.title.trim(),120),
-        body: clip(plain(e.description),1200)+'\n\nSource: Cleveland City Council events calendar, '+link,
+        body: clip(withoutContacts(plain(e.description)),1200)+'\n\nSource: Cleveland City Council events calendar, '+link,
         place: 'Ward '+ward, starts_at: clevelandTime(e.start.replace('T',' ')) };
     });
 }

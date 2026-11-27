@@ -109,3 +109,22 @@ test('members can only reach the new layer through the app entry point',async()=
     await assert.rejects(db.transaction(async(tx)=>{ await tx.exec('set local role authenticated'); await tx.query(statement); }),/permission denied/,statement);
   }
 });
+
+test('imported events never repost a person’s email, from any source, and keep the organizer’s link',async()=>{
+  const { withoutContacts, pickLibrary } = await import('../server/events.js');
+  const text = 'Come join us for an all-abilities book club!\n\nWe read books and more.\n\nIf you have any questions, email or call Kathleen at keiben@cuyahogalibrary.org/216-661-4240\n\nFor more information, visit https://nextchapterbookclub.org/program/';
+  const clean = withoutContacts(text);
+  assert.doesNotMatch(clean,/@|Kathleen|661-4240/);
+  assert.match(clean,/all-abilities book club!\n\nWe read books and more\.\n\nFor more information, visit https:\/\/nextchapterbookclub\.org\/program\//);
+  assert.equal(withoutContacts('Great fun. Write to jo.smith@example.org with questions. See you there!'),'Great fun. See you there!','only the sentence with the address goes');
+  assert.equal(withoutContacts('Call the branch at 216-267-5250.'),'Call the branch at 216-267-5250.','the branch’s own phone line stays');
+
+  const county = pickCounty([{ id:'9', library:'Parma-Snow Branch', title:'Book club', time_string:'11:00am - 12:00pm', url:'https://attend.cuyahogalibrary.org/event/9',
+    private_event:'0', registration_cost:'0', datestring:'Saturday, November 28', event_start:'2026-11-28 11:00:00', long_description:'<p>'+text.replaceAll('\n\n','</p><p>')+'</p>' }]);
+  assert.doesNotMatch(county[0].body,/@|Kathleen/);
+  assert.match(county[0].body,/Details and any sign-up: https:\/\/attend\.cuyahogalibrary\.org\/event\/9$/);
+
+  const library = pickLibrary([{ id:1, title:'Chess Club', campus:'Hough', categories:'Games, Strategy', url:'https://cpl.libcal.com/event/1', start:'4:00pm', end:'5:00pm',
+    startdt:'2026-12-01 16:00:00', description:'Learn chess. Contact mr.jones@cpl.org with questions.' }]);
+  assert.match(library[0].body,/^Learn chess\.\n\nFree at the Hough branch/);
+});
