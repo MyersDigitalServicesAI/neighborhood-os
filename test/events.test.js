@@ -68,25 +68,26 @@ test('import places events in their neighborhood, from the owner, once, and with
   assert.ok(again.empty.includes('Tremont'));
 });
 
-test('the weekly job needs its secret and reports what it posted',async()=>{
+test('the daily job needs its secret, reports what it posted and pins the day’s roundup',async()=>{
   const calls = [];
   const handler = makeHandler({ env:{ CRON_SECRET:'s3cret', SUPABASE_SECRET_KEY:'x' }, local:true,
-    database:{ configured:true, importEvents:async(d)=>{ calls.push(d); return { posted:d.events.length, skipped:0, areas:{}, empty:[] }; } },
+    database:{ configured:true, importEvents:async(d)=>{ calls.push(d); return d.op === 'roundup' ? { roundup:'posted', events:3 } : { posted:d.events.length, skipped:0, areas:{}, empty:[] }; } },
     gather:async()=>({ events:[{ title:'x' }], failures:['council'] }) });
   const run = async (headers) => { const out = { headers:{}, setHeader(k,v){ this.headers[k]=v; }, end(body){ this.body = body; } };
     await handler({ method:'GET', url:'/api/core?action=events', headers, async *[Symbol.asyncIterator](){} },out); return out; };
   assert.equal((await run({})).statusCode,401);
   const ok = await run({ authorization:'Bearer s3cret' });
   assert.equal(ok.statusCode,200);
-  assert.deepEqual(JSON.parse(ok.body),{ posted:1, skipped:0, areas:{}, empty:[], found:1, failures:['council'] });
+  assert.deepEqual(JSON.parse(ok.body),{ posted:1, skipped:0, areas:{}, empty:[], roundup:'posted', events:3, found:1, failures:['council'] });
   assert.equal(calls[0].limit,100);
+  assert.deepEqual(calls[1],{ op:'roundup' },'the roundup runs after the import');
 });
 
 test('gathering survives a calendar that is down',async()=>{
   const request = async (url) => url.startsWith('https://cpl') ? { ok:true, json:async()=>({ results:[libraryEvent(7,'Puppet Show','Hough',2,{categories:' Family Fun'})] }) } : { ok:false, status:503 };
   const { events, failures } = await gatherEvents(request);
   assert.equal(events.length,1);
-  assert.deepEqual(failures,['council']);
+  assert.deepEqual(failures,['council','county']);
 });
 
 test('a full branch neighborhood passes its extra library events to the emptiest bordering neighborhood without a branch, once each',async()=>{

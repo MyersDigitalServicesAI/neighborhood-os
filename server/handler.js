@@ -164,12 +164,14 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders });
       }
       if (req.method === 'GET' && action === 'events') {
-        // Weekly job: post upcoming library events and ward community meetings into each neighborhood.
+        // Daily job, early morning: post upcoming library events and ward community meetings into each neighborhood,
+        // then pin one "Today across Cleveland" post listing the day's events.
         if (!env.CRON_SECRET || req.headers.authorization !== 'Bearer '+env.CRON_SECRET) throw new Problem(401,'Not authorized.');
         if (!env.SUPABASE_SECRET_KEY) throw new Problem(503,'The backend key is not configured.');
         const { events: found, failures } = await gather();
         const result = await database.importEvents({ events:found, limit:100 });
-        return reply(res,200,{ ...result,found:found.length,failures });
+        const today = await database.importEvents({ op:'roundup' });
+        return reply(res,200,{ ...result,...today,found:found.length,failures });
       }
       if (req.method === 'GET' && action === 'callback') {
         const code = url.searchParams.get('code');

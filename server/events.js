@@ -1,7 +1,11 @@
-// Weekly event import. Reads two public calendars, keeps the free community events worth posting and hands them to
+// Daily event import. Reads two public calendars, keeps the free community events worth posting and hands them to
 // the database, which places each one in its neighborhood. Nothing here invents an event: every post carries the
 // organizer's own link.
 const library = 'https://cpl.libcal.com/ajax/calendar/list';
+// Cuyahoga County Public Library runs the branches in the suburbs Nabora covers.
+const county = 'https://attend.cuyahogalibrary.org/eeventcaldata';
+const countyBranches = { 'Parma-Snow Branch':'parma', 'Parma-Powers Branch':'parma', 'Brook Park Branch':'brook-park' };
+const countyRoutine = /\b(ESOL|Kids Cafe|Student Success|Beginning Reader|Orientation|Reading Challenge|Reading Game|Mobile Pantry|Homework|Tech Help|Drop-?in)/i;
 const council = 'https://www.clevelandcitycouncil.gov/resources/events';
 const pageSize = 48;
 // Series that run several times a week would flood the feeds.
@@ -54,6 +58,31 @@ export function pickLibrary(results) {
     .filter((e,i,all)=>all.findIndex((x)=>x.title===e.title)===i).map(({rank,...event})=>event);
 }
 
+// County library events in Parma and Brook Park, one post per title, timed events only.
+export function pickCounty(list) {
+  const seen = new Set();
+  return (Array.isArray(list) ? list : []).filter((e)=>{
+    const area = countyBranches[e?.library];
+    if (!area || e.private_event === '1' || /all day/i.test(e.time_string ?? '') || !/^https:\/\/attend\.cuyahogalibrary\.org\/event\/\d+$/.test(e.url ?? '')
+        || countyRoutine.test(e.title ?? '') || /cancel/i.test((e.title ?? '')+' '+(e.changed_reason ?? '')) || Number(e.registration_cost || 0) > 0) return false;
+    const key = area+'|'+String(e.title).trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).map((e)=>{
+    const branch = e.library.replace(/ Branch$/,'');
+    return {
+      area: countyBranches[e.library],
+      source_url: e.url,
+      title: clip(String(e.title).trim()+' at the '+branch+' library',120),
+      body: clip(plain(e.long_description || e.description),900)+'\n\nFree at the '+branch+' branch of Cuyahoga County Public Library, '+
+        e.datestring+', '+e.time_string+'. Details and any sign-up: '+e.url,
+      place: 'Cuyahoga County Public Library, '+branch+' branch',
+      starts_at: clevelandTime(e.event_start)
+    };
+  });
+}
+
 export function pickCouncil(html) {
   const start = html.indexOf('[{"title"');
   if (start < 0) return [];
@@ -97,10 +126,14 @@ export async function gatherEvents(request = fetch, now = new Date()) {
       } catch (error) { failures.push('library'); break; }
     }
   }
-  let meetings = [];
+  let meetings = [], suburbs = [];
   try { meetings = pickCouncil(await get(council,'text')); } catch { failures.push('council'); }
+  try {
+    const req = JSON.stringify({ private:false,date:now.toISOString().slice(0,10),days:14,locations:[],ages:[],types:[] });
+    suburbs = pickCounty(await get(county+'?event_type=0&req='+encodeURIComponent(req),'json'));
+  } catch { failures.push('county'); }
   // Council meetings first: there are few of them and they matter most.
   const from = now.toISOString(), to = new Date(now.getTime() + 15*86400000).toISOString();
   const upcoming = (e) => e.starts_at >= from && e.starts_at <= to;
-  return { events:[...meetings.filter(upcoming),...pickLibrary(results).filter(upcoming)], failures:[...new Set(failures)] };
+  return { events:[...meetings.filter(upcoming),...pickLibrary(results).filter(upcoming),...suburbs.filter(upcoming)], failures:[...new Set(failures)] };
 }

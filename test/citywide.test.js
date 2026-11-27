@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { initDatabase, fixtures, rpc, importEvents, actors } from './db.js';
+import { initDatabase, fixtures, rpc, importEvents, publicEvents, actors } from './db.js';
 
 let db;
 const call = (who,op,data) => rpc(db,actors[who] ?? who,op,data);
@@ -29,12 +29,15 @@ test('public events reach neighbors in other communities; local-only events stay
   assert.ok(home.events.every((e,i,all)=>i===0 || all[i-1].event_at <= e.event_at),'soonest first');
 
   await call('ava','create_post',{kind:'event',reach:'region',title:'Pearl Road holiday market',when:inDays(5),place:'Pearl Road',body:'Local makers and hot cocoa on Pearl Road.'});
-  await call('ava','create_post',{kind:'event',reach:'area',title:'Our block party',when:inDays(5),place:'Our street',body:'Just for our street this time.'});
+  // A new event not listed publicly still reaches every member, but never the public events page.
+  await call('ava','create_post',{kind:'event',title:'Our block party',when:inDays(5),place:'Our street',body:'Just for our street this time.'});
   const after = (await call('taylor','events')).events.map((e)=>e.title);
   assert.ok(after.includes('Pearl Road holiday market'));
-  assert.ok(!after.includes('Our block party'));
+  assert.ok(after.includes('Our block party'));
+  const open = JSON.stringify(await publicEvents(db));
+  assert.ok(open.includes('Pearl Road holiday market') && !open.includes('Our block party'),'only publicly listed events are public');
   assert.deepEqual((await call('taylor','events',{area:'parma'})).events,[],'filter by neighborhood');
-  assert.equal((await call('taylor','events',{area:'old-brooklyn'})).events.length,2);
+  assert.equal((await call('taylor','events',{area:'old-brooklyn'})).events.length,3);
 });
 
 test('the next 7 days and this weekend narrow the list',async()=>{

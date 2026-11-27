@@ -146,5 +146,9 @@ export async function fixtures(db) {
     body:'We have a few openings before the leaves finish dropping. Message for a free estimate.'});
   await rpc(db,actors.jamal,'create_post',{kind:'alert',title:'Water main break on the corner by the school',place:'Corner by the elementary school',
     body:'Crews are on site and one lane is closed. Expect low water pressure nearby until this evening.'});
+  // The fixture posts stand for posts made before the all-members feed, which stay inside their neighborhood.
+  await db.query("update neighborhood.posts set reach = 'area' where reach = 'members'");
   return business.id;
 }
+// Marks a post as one made before the all-members feed, with the reach its author chose then.
+export const legacy = (db,id,reach = 'area') => db.query('update neighborhood.posts set reach = $2 where id = $1',[id,reach]);

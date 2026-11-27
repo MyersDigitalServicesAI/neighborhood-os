@@ -1,6 +1,6 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { initDatabase, fixtures, rpc, actors, counts } from './db.js';
+import { initDatabase, fixtures, rpc, actors, counts, legacy } from './db.js';
 
 let db;
 let business;
@@ -24,8 +24,11 @@ test('every neighborhood has nearby neighborhoods and the links run both ways',a
 
 test('the author chooses how far a post travels, and each feed shows only what it should',async()=>{
   await assert.rejects(call('ava','create_post',{kind:'discussion',title:'Bad reach',body:'Not a real choice.',reach:'world'}),/who can see/);
-  await call('ava','create_post',{kind:'discussion',title:'Only for Old Brooklyn',body:'Stays local.'});
+  // Posts made before the all-members feed keep the reach their author chose.
+  const local = await call('ava','create_post',{kind:'discussion',title:'Only for Old Brooklyn',body:'Stays local.'});
+  await legacy(db,local.id,'area');
   const nearby = await call('ava','create_post',{kind:'sale',title:'Nearby snow blower',body:'Runs well.',price:'80',reach:'nearby'});
+  await legacy(db,nearby.id,'nearby');
   const region = await call('ava','create_post',{kind:'event',title:'Regional seed swap',body:'Everyone welcome.',when:new Date(Date.now()+86400000).toISOString(),place:'Public square',reach:'region'});
 
   for (const scope of [undefined,'nearby','region']) {
@@ -61,9 +64,11 @@ test('the author chooses how far a post travels, and each feed shows only what i
   assert.deepEqual((await call('new','search',{q:'snow blower'})).posts,[]);
 });
 
-test('messages, profiles and business pages open only through a post the member can see',async()=>{
-  await assert.rejects(call('new','message',{peer:actors.jamal,body:'Hello from far away.'}),/Neighbor unavailable/);
-  assert.equal(await call('new','profile',{id:actors.jamal}),null);
+test('any member can open a profile and message, while business pages open only through an update the member can see',async()=>{
+  const hello = await call('new','message',{peer:actors.jamal,body:'Hello from far away.'});
+  assert.equal((await call('jamal','thread',{id:hello.id})).messages[0].body,'Hello from far away.');
+  assert.equal((await call('new','profile',{id:actors.jamal})).area,'Old Brooklyn');
+  await assert.rejects(call('new','message',{peer:actors.new,body:'Note to self.'}),/Neighbor unavailable/);
   await assert.rejects(call('new','business',{id:business}),/unavailable/);
   assert.equal((await call('new','profile',{id:actors.ava})).area,'Old Brooklyn');
   const thread = await call('new','message',{peer:actors.ava,body:'Is the seed swap indoors?'});
@@ -84,7 +89,8 @@ test('a photo travels with a post that is shared wider, and no further',async()=
   const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
   const local = await call('jamal','upload_image',{mime:'image/png',data:png});
   const shared = await call('jamal','upload_image',{mime:'image/png',data:png});
-  await call('jamal','create_post',{kind:'lost',title:'Lost glove',body:'Left at the park.',image:local.id});
+  const glove = await call('jamal','create_post',{kind:'lost',title:'Lost glove',body:'Left at the park.',image:local.id});
+  await legacy(db,glove.id,'area');
   await call('jamal','create_post',{kind:'lost',title:'Lost dog seen heading north',body:'Brown terrier.',image:shared.id,reach:'region'});
   assert.equal(await call('new','image',{id:local.id}),null);
   assert.equal((await call('new','image',{id:shared.id})).data,png);

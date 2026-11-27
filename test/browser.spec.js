@@ -5,7 +5,7 @@ async function login(page, account) {
   await page.getByLabel('Email address').fill(account+'@neighborhood.test');
   await page.getByLabel('Password',{exact:true}).fill('local-fixture-pass');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'All of Nabora',exact:true})).toBeVisible();
 }
 async function logout(page) {
   await page.goto('/#account');
@@ -189,34 +189,34 @@ test('photo listing, thanks, poll, RSVP, safety alert, search, and verify-then-d
   expect(errors).toEqual([]);
 });
 
-test('a post shared with nearby neighborhoods shows up in the Nearby and Northeast Ohio feeds next door',async({page})=>{
+test('a new post reaches every member, the feed opens on all of Nabora and remembers the view, and anyone can message the author',async({page})=>{
   await page.setViewportSize({width:390,height:844});
   const errors = [];
   page.on('pageerror',(e)=>errors.push(e.message));
   await login(page,'ava');
   await page.goto('/#new/discussion');
+  await expect(page.getByText('Every Nabora member can see this post, in every neighborhood.')).toBeVisible();
+  await expect(page.getByLabel('Who can see this')).toHaveCount(0);
   await page.getByLabel('Title').fill('Porch sale this Saturday');
   await page.getByLabel('Details').fill('Tools, books and a few chairs. Come say hello.');
-  await expect(page.getByLabel('Who can see this')).toHaveValue('nearby');
   await page.getByRole('button',{name:'Publish post'}).click();
-  await expect(page.getByText('Posted in Old Brooklyn · shared with your neighborhood and nearby')).toBeVisible();
-  await page.goto('/#new/discussion');
-  await page.getByLabel('Title').fill('Citywide tool library idea');
-  await page.getByLabel('Details').fill('Would people across the county use one?');
-  await page.getByLabel('Who can see this').selectOption('region');
-  await page.getByRole('button',{name:'Publish post'}).click();
-  await expect(page.getByRole('heading',{name:'Citywide tool library idea'})).toBeVisible();
+  await expect(page.getByText('Posted in Old Brooklyn · shared with all Nabora members')).toBeVisible();
   await logout(page);
 
+  // Taylor lives in Parma and lands on all of Nabora.
   await login(page,'taylor');
-  await expect(page.getByRole('link',{name:'Porch sale this Saturday'})).toHaveCount(0);
-  await page.getByRole('link',{name:'Nearby',exact:true}).click();
   await expect(page.getByRole('link',{name:'Porch sale this Saturday'})).toBeVisible();
-  await expect(page.getByText('Old Brooklyn',{exact:false}).first()).toBeVisible();
+  await expect(page.getByText('Posts from every neighborhood on Nabora.')).toBeVisible();
+  await page.screenshot({path:'test-results/all-feed-mobile.png',fullPage:true});
+  await page.locator('.scope-bar').getByRole('link',{name:'Parma',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
+  await expect(page.getByRole('link',{name:'Porch sale this Saturday'})).toHaveCount(0);
+  await page.goto('/#feed');
+  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
+  await page.locator('.scope-bar').getByRole('link',{name:'Nearby',exact:true}).click();
+  await expect(page.getByRole('link',{name:'Porch sale this Saturday'})).toBeVisible();
   await expect(page.getByText(/^Parma plus .*Old Brooklyn/)).toBeVisible();
-  await page.screenshot({path:'test-results/nearby-mobile.png',fullPage:true});
-  await page.getByRole('link',{name:'Northeast Ohio',exact:true}).click();
-  await expect(page.getByRole('link',{name:'Citywide tool library idea'})).toBeVisible();
+  await page.locator('.scope-bar').getByRole('link',{name:'All of Nabora',exact:true}).click();
   await page.getByRole('link',{name:'Porch sale this Saturday'}).click();
   await page.getByLabel('Your reply').fill('We will stop by from Parma.');
   await page.getByRole('button',{name:'Post reply'}).click();
@@ -225,6 +225,15 @@ test('a post shared with nearby neighborhoods shows up in the Nearby and Northea
   await page.getByLabel('Your message').fill('What time does it start?');
   await page.getByRole('button',{name:'Send message'}).click();
   await expect(page.getByText('What time does it start?')).toBeVisible();
+
+  // Search finds members in any neighborhood, even ones who never posted.
+  await page.goto('/#search');
+  await page.getByLabel('Search Nabora').fill('devon');
+  await page.getByRole('button',{name:'Search'}).click();
+  const devon = page.getByRole('link',{name:/Devon W\./});
+  await expect(devon).toContainText('Old Brooklyn');
+  await devon.click();
+  await expect(page.getByRole('link',{name:'Message Devon W.'})).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   expect(errors).toEqual([]);
 });
@@ -313,7 +322,7 @@ test('an admin creates an invite link and admits a waiting account; a member del
   await page.getByLabel('Email address').fill('taylor@neighborhood.test');
   await page.getByLabel('Password',{exact:true}).fill('local-fixture-pass');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'All of Nabora',exact:true})).toBeVisible();
   await page.goto('/#account');
   await expect(page.getByRole('button',{name:'Turn off email notices'})).toBeVisible();
   await page.getByRole('button',{name:'Turn off email notices'}).click();
@@ -466,7 +475,7 @@ test('neighbors browse events across the city and new events are shared citywide
   await page.setViewportSize({width:390,height:844});
   await login(page,'ava');
   await page.goto('/#new/event');
-  await expect(page.getByLabel('Who can see this')).toHaveValue('region');
+  await expect(page.getByLabel('Also list it on Nabora’s public events page')).toBeChecked();
   await page.getByLabel('Title').fill('Pearl Road holiday market');
   const starts = new Date(Date.now()+3*86400000); starts.setHours(17,0,0,0);
   const local = new Date(starts.getTime()-starts.getTimezoneOffset()*60000).toISOString().slice(0,16);
@@ -474,7 +483,7 @@ test('neighbors browse events across the city and new events are shared citywide
   await page.getByLabel('Where').fill('Pearl Road');
   await page.getByLabel('Details').fill('Local makers, hot cocoa and carols on Pearl Road.');
   await page.getByRole('button',{name:'Publish post'}).click();
-  await expect(page.getByText(/shared with all of Northeast Ohio/)).toBeVisible();
+  await expect(page.getByText(/shared with everyone, including the public/)).toBeVisible();
   await page.getByRole('link',{name:'Account'}).click();
   await page.getByRole('button',{name:'Sign out'}).click();
   await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
@@ -509,7 +518,7 @@ test('signed-out visitors browse citywide events at /events, without poster name
   await page.getByLabel('Where').fill('Pearl Road');
   await page.getByLabel('Details').fill('Local makers and cocoa, open to everyone.');
   await page.getByRole('button',{name:'Publish post'}).click();
-  await expect(page.getByText(/shared with all of Northeast Ohio/)).toBeVisible();
+  await expect(page.getByText(/shared with everyone, including the public/)).toBeVisible();
   await page.getByRole('link',{name:'Account'}).click();
   await page.getByRole('button',{name:'Sign out'}).click();
   await expect(page.getByRole('heading',{name:'Where neighborhoods become neighbors.'})).toBeVisible();
@@ -596,7 +605,7 @@ test('neighbors are offered notifications once on the feed, and can manage them 
   await nudge.getByRole('button',{name:'Not now'}).click();
   await expect(nudge).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole('heading',{name:'Your neighborhood',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'All of Nabora',exact:true})).toBeVisible();
   await expect(page.locator('.push-nudge')).toHaveCount(0);
 
   await page.goto('/#account');
@@ -753,6 +762,7 @@ test('an admin invites a moderator who accepts, messages a member as the team, a
   await expect(page.getByRole('heading',{name:'Message Jamal R.'})).toBeVisible();
   await page.getByLabel('Your message').fill('Thanks for posting the trail cleanup! Want to help moderate?');
   await page.getByRole('button',{name:'Send message'}).click();
+  await expect(page).toHaveURL(/#thread\//);
   await expect(page.getByText('From the Nabora team').first()).toBeVisible();
   await logout(page);
 
