@@ -78,3 +78,32 @@ export async function emptyPhotoTrash(database, storage, { rounds = 5 } = {}) {
   }
   return { photosRemoved:removed };
 }
+
+// Copies photos whose bytes are still only in the database into the bucket and marks each one moved. The daily job
+// runs this, so the secret key never has to leave the server. The bytes stay in the table until a later update.
+export async function moveLegacyPhotos(database, storage, { batch = 20, log = () => {} } = {}) {
+  if (!storage.enabled) return {};
+  let moved = 0;
+  const failed = new Set();
+  for (;;) {
+    const photos = (await database.photos({ op:'legacy',limit:batch })).filter((photo) => !failed.has(photo.id));
+    if (!photos.length) break;
+    for (const photo of photos) {
+      const path = legacyPath(photo);
+      try {
+        await storage.put(path,photoBytes(photo.mime,photo.data),photo.mime,{ upsert:true });
+        await database.photos({ op:'moved',id:photo.id,path });
+        moved++;
+        log('Moved '+photo.id+' to '+path);
+      } catch (error) {
+        failed.add(photo.id);
+        log('Could not move '+photo.id+': '+(error.detail ?? error.message));
+      }
+    }
+  }
+  return { photosMoved:moved,photosNotMoved:failed.size };
+}
+
+export function legacyPath(photo) {
+  return photo.owner+'/'+photo.id+'.'+({ 'image/jpeg':'jpg','image/png':'png','image/webp':'webp' })[photo.mime];
+}
