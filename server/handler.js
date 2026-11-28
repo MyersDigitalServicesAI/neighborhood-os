@@ -8,6 +8,7 @@ import { eventsPage } from './events-page.js';
 import { foodPage, foodKinds } from './food-page.js';
 import { treesPage } from './trees-page.js';
 import { trustPage } from './trust-page.js';
+import { emptyPhotoTrash, photoBytes, storageAdapter } from './storage.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -55,7 +56,8 @@ function cookies(req) {
 }
 
 export function makeHandler({ env = globalThis.process?.env ?? {}, database = supabaseAdapter(env), billing = billingAdapter(env,database),
-  local = false, mailer = mailerAdapter(env), pusher = pushAdapter(env), gather = () => gatherEvents() } = {}) {
+  local = false, mailer = mailerAdapter(env), pusher = pushAdapter(env), gather = () => gatherEvents(),
+  storage = storageAdapter(env) } = {}) {
   const prefix = local ? 'nh_' : '__Host-nh_';
   function cookie(name,value,maxAge) {
     return prefix + name + '=' + value + '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + maxAge + (local ? '' : '; Secure');
@@ -163,7 +165,12 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         const reminders = mailer.enabled ? await database.mail({ op:'remind' }) : {};
         const mail = await deliver(database,mailer,{ budget:thursday ? 45000 : 15000,limit:25 });
         const push = await deliverPush(database,pusher,{ budget:10000,limit:50 });
-        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders });
+        // Files in the photo bucket whose photo was deleted (for example with its account) are removed too.
+        const photos = await emptyPhotoTrash(database,storage).catch((error) => {
+          console.error('Photo cleanup failed',error?.detail ?? error?.name ?? 'Error');
+          return { photosRemoved:0,photoCleanupFailed:true };
+        });
+        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders,...photos });
       }
       if (req.method === 'GET' && action === 'events') {
         // Daily job, early morning: post upcoming library events and ward community meetings into each neighborhood,
@@ -196,6 +203,14 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (!access) throw new Problem(401,'Sign in to continue.');
         if (!idPattern.test(id)) throw new Problem(404,'Photo unavailable.');
         const photo = await database.rpc(access,'image',{id});
+        if (photo?.path && /^image\/(jpeg|png|webp)$/.test(photo.mime ?? '')) {
+          // The photo is in the bucket: send the browser a link to it that works for an hour. The redirect itself is
+          // kept for a little less, so a cached redirect never points at an expired link.
+          res.statusCode = 302;
+          res.setHeader('Location',await storage.sign(photo.path,3600));
+          res.setHeader('Cache-Control','private, max-age=3000');
+          return res.end();
+        }
         if (!photo?.data || !/^image\/(jpeg|png|webp)$/.test(photo.mime ?? '')) throw new Problem(404,'Photo unavailable.');
         res.statusCode = 200;
         res.setHeader('Content-Type',photo.mime);
@@ -280,12 +295,24 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (!pusher.enabled) throw new Problem(503,'Notifications are not available yet.');
         if (typeof body.endpoint !== 'string' || !pushHosts.test(body.endpoint)) throw new Problem(400,'This browser’s push service isn’t supported.');
       }
+      if (action === 'upload_image' && storage.enabled) {
+        // Check the bytes are really the photo type claimed, reserve a row (the database applies the limits), put
+        // the file in the bucket, then mark the row stored. A reservation that never gets a file is swept daily.
+        const bytes = photoBytes(body.mime,body.data);
+        const reserved = await database.rpc(access,'reserve_image',{ mime:body.mime });
+        await storage.put(reserved.path,bytes,body.mime);
+        await database.photos({ op:'stored',id:reserved.id });
+        return reply(res,200,{ id:reserved.id,ok:true });
+      }
       const result = await database.rpc(access,action,body);
       await Promise.all([mailOperations.has(action) && mailer.enabled ? deliver(database,mailer).catch(() => {}) : null,
         pushOperations.has(action) && pusher.enabled ? deliverPush(database,pusher).catch(() => {}) : null]);
       return reply(res,200,result);
     } catch (error) {
-      if (error instanceof Problem) return reply(res,error.status,{ error:error.message });
+      if (error instanceof Problem) {
+        if (error.detail) console.error('Nabora request failed',action,error.detail);
+        return reply(res,error.status,{ error:error.message });
+      }
       console.error('Nabora request failed',action,error?.name ?? 'Error');
       return reply(res,502,{ error:'The service is temporarily unavailable.' });
     }
