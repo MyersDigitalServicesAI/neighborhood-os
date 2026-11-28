@@ -33,3 +33,4 @@
 20261206090000_member_feedback.sql
 20261207090000_photo_storage.sql
 20261208090000_guide_suburbs.sql
+20261209090000_events_search.sql
