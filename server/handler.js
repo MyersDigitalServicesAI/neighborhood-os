@@ -8,7 +8,7 @@ import { eventsPage } from './events-page.js';
 import { foodPage, foodKinds } from './food-page.js';
 import { treesPage } from './trees-page.js';
 import { trustPage } from './trust-page.js';
-import { emptyPhotoTrash, photoBytes, storageAdapter } from './storage.js';
+import { emptyPhotoTrash, moveLegacyPhotos, photoBytes, storageAdapter } from './storage.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -170,7 +170,12 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
           console.error('Photo cleanup failed',error?.detail ?? error?.name ?? 'Error');
           return { photosRemoved:0,photoCleanupFailed:true };
         });
-        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders,...photos });
+        // Photos still stored only in the database are copied into the bucket.
+        const moved = await moveLegacyPhotos(database,storage).catch((error) => {
+          console.error('Photo move failed',error?.detail ?? error?.name ?? 'Error');
+          return { photosMoved:0,photoMoveFailed:true };
+        });
+        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders,...photos,...moved });
       }
       if (req.method === 'GET' && action === 'events') {
         // Daily job, early morning: post upcoming library events and ward community meetings into each neighborhood,

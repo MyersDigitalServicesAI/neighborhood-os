@@ -126,3 +126,18 @@ test('the storage adapter talks to the private bucket with the secret key',async
   assert.equal(calls[2][1].method,'DELETE');
   assert.deepEqual(JSON.parse(calls[2][1].body),{prefixes:[path]});
 });
+
+test('the daily job copies photos still stored in the database into the bucket',async()=>{
+  const old = await call('ava','upload_image',{mime:'image/png',data:png});
+  const bucket = memoryBucket();
+  const database = { ...fixtureAdapter(db,{}),photos:(d)=>photos(db,d),mail:async(d)=>d.op==='purge' ? {purged:0} : {} };
+  const handler = makeHandler({env:{APP_ORIGIN:origin,CRON_SECRET:'c',SUPABASE_SECRET_KEY:'k'},database,storage:bucket,
+    billing:{enabled:false},mailer:{enabled:false},pusher:{enabled:false}});
+  const res = {headers:{},setHeader(k,v){this.headers[k.toLowerCase()]=v;},end(value){this.body=JSON.parse(value);}};
+  await handler({method:'GET',url:'/api/core?action=deliver',headers:{authorization:'Bearer c'},async *[Symbol.asyncIterator](){}},res);
+  assert.equal(res.statusCode,200);
+  assert.ok(res.body.photosMoved >= 1);
+  assert.equal(res.body.photosNotMoved,0);
+  assert.ok(bucket.files.has(actors.ava+'/'+old.id+'.png'));
+  assert.equal((await photos(db,{op:'status'})).table_only,0);
+});
