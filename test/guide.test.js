@@ -24,6 +24,18 @@ test('every Cleveland neighborhood has a sourced guide covering civic life, plac
   assert.equal((await db.query("select count(*)::int n from neighborhood.guide_items where source = ''")).rows[0].n,0,'every item names its source');
 });
 
+test('the suburban pilot cities have sourced guides covering civic life, places and help',async()=>{
+  const { rows } = await db.query(`select a.id,count(g.id)::int n,count(distinct g.section)::int sections,
+      count(*) filter (where g.kind = 'police')::int police,count(*) filter (where g.kind = 'library')::int libraries
+    from neighborhood.areas a left join neighborhood.guide_items g on g.area_id = a.id where a.id in ('parma','brook-park','lakewood') group by a.id`);
+  assert.equal(rows.length,3);
+  for (const r of rows) {
+    assert.ok(r.n >= 20,r.id+' has a guide');
+    assert.ok(r.sections >= 3,r.id+' covers civic life, places and help');
+    assert.ok(r.police === 1 && r.libraries >= 1,r.id+' names its police department and library');
+  }
+});
+
 test('neighbors read any guide; their own neighborhood by default',async()=>{
   const mine = await call('ava','guide');
   assert.equal(mine.area.name,'Old Brooklyn');
@@ -34,7 +46,10 @@ test('neighbors read any guide; their own neighborhood by default',async()=>{
   assert.deepEqual([...new Set(mine.items.map((i)=>i.section))],['civic','groups','help','places'],'grouped by section');
   const tremont = await call('taylor','guide',{area:'tremont'});
   assert.equal(tremont.area.name,'Tremont');
-  assert.deepEqual((await call('taylor','guide')).items,[],'suburb guides are still empty');
+  const parma = await call('taylor','guide');
+  assert.equal(parma.area.name,'Parma');
+  assert.ok(parma.items.some((i)=>i.kind==='council' && i.name.startsWith('Ward 1 ·')),'suburb guides list council members');
+  assert.ok(!parma.items.some((i)=>i.kind==='ward'),'suburb council members never match Cleveland ward meetings');
   await assert.rejects(call('ava','guide',{area:'atlantis'}),/Neighborhood unavailable/);
 });
 
