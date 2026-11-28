@@ -270,7 +270,7 @@ export function composer(type,businesses = [],area = 'My neighborhood') {
   const extra = kind==='sale' ? field('Price in dollars','price',{max:9,placeholder:'0 for free',extra:'inputmode="decimal" pattern="[0-9]{1,6}([.][0-9]{1,2})?"',hint:'Enter 0 to give it away.'})+
       field('Pickup area (optional)','place',{required:false,min:2,max:120,placeholder:'For example, near the library'}) :
     kind==='event' ? field('Starts','when',{type:'datetime-local',max:30})+field('Where','place',{min:2,max:120,placeholder:'A public place or venue'})+
-      select('Category','category',eventCategories,'family') :
+      select('Category','category',eventCategories,'','Choose a category') :
     kind==='lost' || kind==='alert' ? field('General location (optional)','place',{required:false,min:2,max:120,placeholder:'A cross street or landmark, never a home address'}) :
     kind==='poll' ? [1,2,3,4].map((n)=>field('Choice '+n+(n>2?' (optional)':''),'option'+n,{required:n<3,min:1,max:80})).join('') :
     kind==='offer' ? select('Post as','business',businesses.map((b)=>[b.id,b.name]),businesses[0]?.id) : '';

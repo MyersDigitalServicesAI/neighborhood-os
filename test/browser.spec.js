@@ -525,6 +525,7 @@ test('signed-out visitors browse citywide events at /events, without poster name
   const starts = new Date(Date.now()+2*86400000); starts.setHours(15,0,0,0);
   await page.getByLabel('Starts').fill(new Date(starts.getTime()-starts.getTimezoneOffset()*60000).toISOString().slice(0,16));
   await page.getByLabel('Where').fill('Pearl Road');
+  await page.getByLabel('Category').selectOption('food');
   await page.getByLabel('Details').fill('Local makers and cocoa, open to everyone.');
   await page.getByRole('button',{name:'Publish post'}).click();
   await expect(page.getByText(/shared with everyone, including the public/)).toBeVisible();

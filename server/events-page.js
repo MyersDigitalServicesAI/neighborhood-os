@@ -21,7 +21,7 @@ export function eventsPage(data, origin) {
   const heading = (categoryLabel ? categoryLabel+' events' : place || day ? 'Events' : titles[when] ?? titles.all)+
     (place ? ' in '+place+(miles ? ' and within '+miles+' mile'+(miles>1?'s':'') : '') : '')+(dayText ? ' on '+dayText : '');
   const canonical = origin+query();
-  const filtered = Boolean(day || mine || miles);
+  const filtered = Boolean(day || mine || miles || events.length===0);
   const description = events.length
     ? events.length+' free and local events across Cleveland neighborhoods: library programs, ward meetings, holiday markets and more. Updated every week.'
     : 'Free and local events across Cleveland neighborhoods, updated every week on Nabora.';
@@ -44,7 +44,7 @@ export function eventsPage(data, origin) {
   const chips = (items,current,href) => items.map(([key,label])=>'<a href="'+esc(href(key))+'"'+(current===key?' aria-current="page"':'')+'>'+esc(label)+'</a>').join('');
   const total = categories.reduce((sum,c)=>sum+c.count,0);
   const picker = '<form class="filter" method="get" action="/events">'+
-    Object.entries({ when:state.when,cat:state.cat,mine:state.mine }).filter(([,v])=>v).map(([k,v])=>'<input type="hidden" name="'+k+'" value="'+esc(v)+'">').join('')+
+    Object.entries({ when:state.when,cat:state.cat }).filter(([,v])=>v).map(([k,v])=>'<input type="hidden" name="'+k+'" value="'+esc(v)+'">').join('')+
     '<label>Neighborhood <select name="area"><option value="">Everywhere</option>'+areas.map((a)=>'<option value="'+esc(a.id)+'"'+(a.id===area?' selected':'')+'>'+esc(a.name)+' ('+a.count+')</option>').join('')+'</select></label>'+
     '<label>Distance <select name="miles"><option value="">This neighborhood only</option>'+radiusMiles.map((m)=>'<option value="'+m+'"'+(String(miles)===String(m)?' selected':'')+'>Within '+m+' mile'+(m>1?'s':'')+'</option>').join('')+'</select></label>'+
     '<label>On this day <input type="date" name="day" value="'+esc(state.day)+'"></label>'+

@@ -13,12 +13,12 @@ language sql immutable set search_path = '' as $$
   select case
     when t ~* '\m(ward|council|community meeting|town hall|zoning|commission|public hearing|city hall|voter|election|board of)\M' then 'civic'
     when t ~* '\m(kids?|children|toddlers?|babies|baby|family|families|storytime|story time|puppet|teens?|youth|preschool)\M' then 'family'
-    when t ~* '\m(holiday|christmas|santa|menorah|hanukkah|kwanzaa|halloween|thanksgiving|tree lighting|lights|new year|easter|winter)\M' then 'holiday'
-    when t ~* '\m(food|farmers?|market|tasting|dinner|brunch|brew|bake|baking|cooking|pantry|cookie|coffee|pizza)\M' then 'food'
+    when t ~* '\m(holiday|holidays|christmas|santa|menorah|hanukkah|kwanzaa|halloween|thanksgiving|tree lighting|new year|easter)\M' then 'holiday'
+    when t ~* '\m(food|farmers?|market|tasting|dinner|brunch|brew|bake|baking|cooking|pantry|cookie|pizza)\M' then 'food'
     when t ~* '\m(art|arts|music|concert|gallery|theat(er|re)|film|movie|dance|poetry|craft|crafts|paint|painting|museum|author)\M' then 'arts'
-    when t ~* '\m(volunteer|cleanup|clean-up|donat(e|ion)|drive|neighbors? helping|mutual aid)\M' then 'community'
-    when t ~* '\m(trail|hike|run|walk|bike|yoga|fitness|soccer|baseball|basketball|park|garden|outdoor|sports?)\M' then 'outdoors'
-    when t ~* '\m(class|classes|workshop|library|book|computer|learn|lesson|course|tech|resume|job|english|club)\M' then 'classes'
+    when t ~* '\m(volunteer|cleanup|clean-up|donat(e|ion)|(food|coat|toy|blood) drive|mutual aid)\M' then 'community'
+    when t ~* '\m(trail|hike|hiking|bike|biking|yoga|fitness|soccer|baseball|basketball|garden|outdoors?|sports?|5k)\M' then 'outdoors'
+    when t ~* '\m(class|classes|workshop|library|book|computer|learn|lesson|course|resume|english)\M' then 'classes'
     else 'other'
   end
 $$;
@@ -28,7 +28,9 @@ create function neighborhood.set_event_category() returns trigger
 language plpgsql set search_path = '' as $$
 begin
   if new.kind = 'event' and new.event_category is null then
-    new.event_category := neighborhood.guess_event_category(new.title || ' ' || left(new.body,300));
+    -- Imported titles end "... at the <branch> library" and their text is boilerplate, so only the title is read.
+    new.event_category := neighborhood.guess_event_category(case when new.source_url is not null
+      then regexp_replace(new.title,' at the .* library$','') else new.title || ' ' || left(new.body,300) end);
   end if;
   return new;
 end
@@ -36,14 +38,15 @@ $$;
 create trigger posts_event_category before insert on neighborhood.posts
   for each row execute function neighborhood.set_event_category();
 
-update neighborhood.posts set event_category = neighborhood.guess_event_category(title || ' ' || left(body,300))
+update neighborhood.posts set event_category = neighborhood.guess_event_category(case when source_url is not null
+    then regexp_replace(title,' at the .* library$','') else title || ' ' || left(body,300) end)
   where kind = 'event' and event_category is null;
 
 create index if not exists posts_event_search on neighborhood.posts(event_at) where kind = 'event' and removed_at is null;
 
 -- Straight-line distance in miles between two points.
 create function neighborhood.miles_between(lat1 double precision,lng1 double precision,lat2 double precision,lng2 double precision)
-returns double precision language sql immutable set search_path = '' as $$
+returns double precision language sql immutable strict set search_path = '' as $$
   select 3958.8 * 2 * asin(least(1,sqrt(
     power(sin(radians(lat2 - lat1) / 2),2) + cos(radians(lat1)) * cos(radians(lat2)) * power(sin(radians(lng2 - lng1) / 2),2))))
 $$;
@@ -58,12 +61,12 @@ language sql stable security definer set search_path = '' as $$
   from neighborhood.posts p
   join neighborhood.areas a on a.id = p.area_id
   left join neighborhood.areas c on c.id = pick
-  where p.kind = 'event' and p.removed_at is null and p.event_at between starts and ends
+  where p.kind = 'event' and p.removed_at is null and p.event_at >= starts and p.event_at < ends
     and (case when home is null then p.reach = 'region' else neighborhood.visible(p,home) end)
     and (home is null or not exists(select 1 from neighborhood.blocks k where k.owner_id = actor and k.blocked_id = p.author_id))
     and (not neighbors or p.source_url is null)
     and (pick is null or (miles is null and p.area_id = pick)
-      or (miles is not null and neighborhood.miles_between(c.lat,c.lng,a.lat,a.lng) <= miles))
+      or (miles is not null and (p.area_id = pick or neighborhood.miles_between(c.lat,c.lng,a.lat,a.lng) <= miles)))
 $$;
 
 -- One search for both audiences.
@@ -100,6 +103,7 @@ begin
     starts := greatest(starts,day::timestamp at time zone zone);
     ends := least(ends,(day + 1)::timestamp at time zone zone);
   elsif span = 'today' then
+    starts := greatest(starts,today::timestamp at time zone zone);
     ends := least(ends,(today + 1)::timestamp at time zone zone);
   elsif span = 'tomorrow' then
     starts := greatest(starts,(today + 1)::timestamp at time zone zone);

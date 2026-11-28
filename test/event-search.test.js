@@ -143,3 +143,26 @@ test('the category list is the same in the database, the server and the app',asy
   const list = web.slice(web.indexOf('export const eventCategories'),web.indexOf('const categoryName'));
   assert.deepEqual([...list.matchAll(/\['(\w+)','([^']+)'\]/g)].map((m)=>[m[1],m[2]]),eventCategories);
 });
+
+test('category guesses avoid the false positives that library names and common words caused',async()=>{
+  const guess = async (t) => (await db.query('select neighborhood.guess_event_category($1) c',[t])).rows[0].c;
+  assert.equal(await guess('Computer class'),'classes');
+  assert.equal(await guess('Walk-in tax help'),'other');
+  assert.equal(await guess('Coffee with a Cop'),'other');
+  assert.equal(await guess('Winter coat drive'),'community');
+  assert.equal(await guess('Martin Luther King Day program'),'other');
+  const imported = await db.query("select event_category c from neighborhood.posts where title like 'Puppet show%'");
+  assert.equal(imported.rows[0].c,'family');
+});
+
+test('the public page can switch off neighbors-only, and empty searches are kept out of search engines',async()=>{
+  const html = eventsPage(await publicEvents(db,{mine:'neighbors'}),'https://nabora.us');
+  assert.ok(!/type="hidden" name="mine"/.test(html),'the checkbox is the only source of the filter');
+  const nothing = eventsPage(await publicEvents(db,{cat:'outdoors',when:'today'}),'https://nabora.us');
+  assert.match(nothing,/noindex/);
+});
+
+test('a neighborhood without coordinates is not treated as 12,000 miles away',async()=>{
+  const miles = (await db.query('select neighborhood.miles_between(null,-81.7,41.4,-81.7) m')).rows[0].m;
+  assert.equal(miles,null);
+});
