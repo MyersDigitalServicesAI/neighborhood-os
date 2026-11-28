@@ -481,6 +481,7 @@ test('neighbors browse events across the city and new events are shared citywide
   const local = new Date(starts.getTime()-starts.getTimezoneOffset()*60000).toISOString().slice(0,16);
   await page.getByLabel('Starts').fill(local);
   await page.getByLabel('Where').fill('Pearl Road');
+  await page.getByLabel('Category').selectOption('food');
   await page.getByLabel('Details').fill('Local makers, hot cocoa and carols on Pearl Road.');
   await page.getByRole('button',{name:'Publish post'}).click();
   await expect(page.getByText(/shared with everyone, including the public/)).toBeVisible();
@@ -498,10 +499,18 @@ test('neighbors browse events across the city and new events are shared citywide
   await page.screenshot({path:'test-results/events-mobile.png',fullPage:false});
   expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBe(390);
   await page.locator('.events-filters select[name="area"]').selectOption('old-brooklyn');
-  await page.getByRole('button',{name:'Show'}).click();
+  await page.locator('.events-filters select[name="miles"]').selectOption('5');
+  await page.getByRole('button',{name:'Search'}).click();
   await expect(page).toHaveURL(/area=old-brooklyn/);
+  await expect(page).toHaveURL(/miles=5/);
   await page.getByRole('link',{name:'Next 7 days'}).click();
   await expect(page).toHaveURL(/when=week/);
+  await expect(market).toBeVisible();
+  await page.locator('.events-filters').getByRole('link',{name:/^Food & markets/}).click();
+  await expect(page).toHaveURL(/cat=food/);
+  await expect(market).toBeVisible();
+  await page.locator('.events-filters').getByRole('link',{name:/^All categories/}).click();
+  await expect(page).not.toHaveURL(/cat=/);
   await expect(market).toBeVisible();
   await market.click();
   await expect(page.getByRole('heading',{name:'Pearl Road holiday market',level:1})).toBeVisible();

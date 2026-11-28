@@ -5,6 +5,7 @@ import { unsubscribePage } from './unsubscribe-page.js';
 import { deliverPush, pushAdapter, pushHosts } from './push.js';
 import { gatherEvents } from './events.js';
 import { eventsPage } from './events-page.js';
+import { searchFilters } from './event-filters.js';
 import { foodPage, foodKinds } from './food-page.js';
 import { treesPage } from './trees-page.js';
 import { trustPage } from './trust-page.js';
@@ -115,9 +116,10 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
       }
       if (req.method === 'GET' && (action === 'public-events' || action === 'events-page')) {
         // Public: events shared with all of Northeast Ohio, for anyone. Cached briefly at the edge.
-        const span = ['week','weekend'].includes(url.searchParams.get('when')) ? url.searchParams.get('when') : '';
+        const span = ['today','tomorrow','week','weekend'].includes(url.searchParams.get('when')) ? url.searchParams.get('when') : '';
         const place = /^[a-z0-9-]{2,40}$/.test(url.searchParams.get('area') ?? '') ? url.searchParams.get('area') : '';
-        const data = await database.publicEvents({ when:span,area:place });
+        const filters = searchFilters(url.searchParams);
+        const data = await database.publicEvents({ ...filters,when:filters.day ? '' : span,area:place });
         res.statusCode = 200;
         res.setHeader('Cache-Control','public, max-age=300, s-maxage=600');
         if (action === 'public-events') {

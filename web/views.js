@@ -269,7 +269,8 @@ export function composer(type,businesses = [],area = 'My neighborhood') {
     sale:'Meet in a public place and keep your address out of the listing.', offer:'Each business can share two updates a week.' };
   const extra = kind==='sale' ? field('Price in dollars','price',{max:9,placeholder:'0 for free',extra:'inputmode="decimal" pattern="[0-9]{1,6}([.][0-9]{1,2})?"',hint:'Enter 0 to give it away.'})+
       field('Pickup area (optional)','place',{required:false,min:2,max:120,placeholder:'For example, near the library'}) :
-    kind==='event' ? field('Starts','when',{type:'datetime-local',max:30})+field('Where','place',{min:2,max:120,placeholder:'A public place or venue'}) :
+    kind==='event' ? field('Starts','when',{type:'datetime-local',max:30})+field('Where','place',{min:2,max:120,placeholder:'A public place or venue'})+
+      select('Category','category',eventCategories,'family') :
     kind==='lost' || kind==='alert' ? field('General location (optional)','place',{required:false,min:2,max:120,placeholder:'A cross street or landmark, never a home address'}) :
     kind==='poll' ? [1,2,3,4].map((n)=>field('Choice '+n+(n>2?' (optional)':''),'option'+n,{required:n<3,min:1,max:80})).join('') :
     kind==='offer' ? select('Post as','business',businesses.map((b)=>[b.id,b.name]),businesses[0]?.id) : '';
@@ -819,13 +820,26 @@ export function guideView(guide,areas,home,canEdit = false) {
 const dayLabel = new Intl.DateTimeFormat('en-US',{weekday:'long',month:'long',day:'numeric',timeZone:'America/New_York'});
 const timeLabel = new Intl.DateTimeFormat('en-US',{hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
 const dayKey = new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York'});
+export const eventCategories = [
+  ['family','Family & kids'],['arts','Arts & culture'],['food','Food & markets'],['civic','Civic & government'],
+  ['community','Volunteering & community'],['outdoors','Sports & outdoors'],['classes','Classes & library'],['holiday','Holiday & seasonal'],['other','Other']
+];
+const categoryName = Object.fromEntries(eventCategories);
+const eventSpans = [['','All upcoming'],['today','Today'],['tomorrow','Tomorrow'],['weekend','This weekend'],['week','Next 7 days']];
 export function eventsView(data,home) {
-  const {events,areas,when,area} = data;
-  const query = (w,a) => { const q = new URLSearchParams({...(w?{when:w}:{}),...(a?{area:a}:{})}).toString(); return '#events'+(q?'?'+q:''); };
-  const tabs = '<nav class="tabs" aria-label="When">'+[['','All upcoming'],['week','Next 7 days'],['weekend','This weekend']].map(([key,label])=>
-    '<a href="'+query(key,area)+'" '+((when==='all'?'':when)===key?'aria-current="page"':'')+'>'+esc(label)+'</a>').join('')+'</nav>';
+  const {events,suggested = [],areas,categories = [],when,area,miles,cat,day,mine} = data;
+  const state = { when:when==='all'||when==='day'?'':when, area:area ?? '', miles:area && miles ? String(miles) : '', cat:cat ?? '', day:day ?? '', mine:mine ?? '' };
+  const query = (change = {}) => { const next = { ...state, ...change }; if (change.day) next.when = ''; if (change.when) next.day = '';
+    const q = new URLSearchParams(Object.entries(next).filter(([,v])=>v)).toString(); return '#events'+(q?'?'+q:''); };
+  const chips = (items,current,href,label = 'Filter') => '<nav class="tabs" aria-label="'+label+'">'+items.map(([key,text])=>
+    '<a href="'+href(key)+'" '+(current===key?'aria-current="page"':'')+'>'+esc(text)+'</a>').join('')+'</nav>';
   const total = areas.reduce((sum,a)=>sum+a.count,0);
-  const picker = form('events_filter',hidden('when',when==='all'?'':when)+select('Neighborhood','area',[['','Everywhere ('+total+')'],...areas.map((a)=>[a.id,a.name+' ('+a.count+')'+(a.id===home?' · yours':'')])],area ?? '')+button('Show','outline'));
+  const catTotal = categories.reduce((sum,c)=>sum+c.count,0);
+  const hiddenState = Object.entries({when:state.when,cat:state.cat}).map(([k,v])=>hidden(k,v)).join('');
+  const picker = form('events_filter',hiddenState+select('Neighborhood','area',[['','Everywhere ('+total+')'],...areas.map((a)=>[a.id,a.name+' ('+a.count+')'+(a.id===home?' · yours':'')])],area ?? '')+
+    select('Distance','miles',[['','This neighborhood only'],...[1,3,5,10].map((m)=>[String(m),'Within '+m+' mile'+(m>1?'s':'')])],state.miles)+
+    '<label class="field"><span>On this day</span><input type="date" name="day" value="'+esc(state.day)+'"></label>'+
+    '<label class="check"><input name="mine" type="checkbox" value="neighbors"'+(mine?' checked':'')+'><span>Posted by neighbors only</span></label>'+button('Search','outline'));
   const days = [];
   for (const e of events) {
     const key = dayKey.format(new Date(e.event_at));
@@ -834,13 +848,18 @@ export function eventsView(data,home) {
   }
   const card = (e) => '<a class="card event-row" href="#post/'+ref(e.id)+'"><span class="event-time">'+esc(timeLabel.format(new Date(e.event_at)))+'</span>'+
     '<span class="event-main"><strong>'+esc(e.title)+'</strong>'+(e.place?'<small>'+icon('pin',13)+esc(e.place)+'</small>':'')+
-    '<span class="event-tags">'+chip(e.area,'',e.area_id===home?'verified':'location')+(e.going?'<small>'+esc(e.going)+' going</small>':'')+'</span></span>'+icon('arrow',17)+'</a>';
-  return heading('WHAT’S ON','Events across the city','See what’s happening in your neighborhood and every community around it.',action('Post an event','new/event','primary','plus'))+
-    '<p class="small public-note">'+icon('external',14)+' Anyone can browse citywide events at <a href="/events">nabora.us/events</a>. Share it.</p>'+
-    '<section class="card panel events-filters">'+tabs+picker+'</section>'+
+    '<span class="event-tags">'+chip(e.area,'',e.area_id===home?'verified':'location')+(e.category&&e.category!=='other'?chip(categoryName[e.category] ?? '','','location'):'')+
+    (e.away>0?'<small>'+esc(e.away)+' mi away</small>':'')+(e.going?'<small>'+esc(e.going)+' going</small>':'')+'</span></span>'+icon('arrow',17)+'</a>';
+  const empty = suggested.length
+    ? '<section class="detail-section event-day"><h2>Nothing matches exactly. Within 10 miles:</h2><div class="cards">'+suggested.map(card).join('')+'</div></section>'
+    : blank('calendar','No events match',when==='weekend'?'Nothing is posted for this weekend yet. Try the next 7 days or a wider distance.':'Try a wider distance or fewer filters, or be the first: post an event and neighbors across the city can find it.',action('Post an event','new/event','outline','plus'));
+  return heading('WHAT’S ON','Events across the city','Search by neighborhood and distance, day and category.',action('Post an event','new/event','primary','plus'))+
+    '<p class="small public-note">'+icon('external',14)+' Anyone can browse events shared publicly at <a href="/events">nabora.us/events</a>. Share it.</p>'+
+    '<section class="card panel events-filters">'+chips(eventSpans,day?'-':state.when,(key)=>query({when:key,day:''}),'When')+
+    chips([['','All categories ('+catTotal+')'],...eventCategories.filter(([key])=>categories.some((c)=>c.id===key)).map(([key,label])=>[key,label+' ('+categories.find((c)=>c.id===key).count+')'])],state.cat,(key)=>query({cat:key}),'Category')+
+    picker+'</section>'+
     (days.length ? days.map((d)=>'<section class="detail-section event-day"><h2>'+esc(d.label)+'</h2><div class="cards">'+d.items.map(card).join('')+'</div></section>').join('')+
-      (events.length===60?'<p class="small">Showing the next 60 events. Pick a neighborhood or a shorter time to see more.</p>':'') :
-      blank('calendar','No events here yet',when==='weekend'?'Nothing is posted for this weekend yet. Try the next 7 days.':'Be the first: post an event and neighbors across the city can find it.',action('Post an event','new/event','outline','plus')));
+      (events.length===60?'<p class="small">Showing the next 60 events. Narrow the search to see more.</p>':'') : empty);
 }
 
 // Phone notifications for this device. `state` comes from web/push.js.

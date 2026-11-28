@@ -244,8 +244,10 @@ async function render() {
         break;
       case 'events': {
         page = 'events';
-        const when = ['week','weekend'].includes(params.get('when')) ? params.get('when') : '';
-        content = view.eventsView(await rpc('events',{area:params.get('area') ?? '',when}),member.area_id);
+        const pick = (name,allowed) => allowed.includes(params.get(name)) ? params.get(name) : '';
+        content = view.eventsView(await rpc('events',{area:params.get('area') ?? '',when:pick('when',['today','tomorrow','week','weekend']),
+          cat:pick('cat',view.eventCategories.map(([key])=>key)),miles:pick('miles',['1','3','5','10']),
+          day:/^\d{4}-\d{2}-\d{2}$/.test(params.get('day') ?? '') ? params.get('day') : '',mine:pick('mine',['neighbors'])}),member.area_id);
         break;
       }
       case 'guide': {
@@ -497,7 +499,7 @@ async function submit(operation,data,element) {
   }
   if (operation === 'search') return go('search?'+new URLSearchParams({q:data.q.trim()}));
   if (operation === 'guide_area') return go('guide/'+encodeURIComponent(data.area));
-  if (operation === 'events_filter') return go('events?'+new URLSearchParams({...(data.when?{when:data.when}:{}),...(data.area?{area:data.area}:{})}));
+  if (operation === 'events_filter') return go('events?'+new URLSearchParams(Object.entries({when:data.when,cat:data.cat,area:data.area,miles:data.area?data.miles:'',day:data.day,mine:data.mine}).filter(([,v])=>v)));
   if (operation === 'signup' || operation === 'recover') {
     await raw(operation,data);
     element.reset();

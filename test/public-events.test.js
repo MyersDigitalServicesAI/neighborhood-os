@@ -55,5 +55,6 @@ test('the public endpoints need no session, validate filters and may be cached',
   assert.match(page.headers['Cache-Control'],/s-maxage=600/);
   const json = await get('/api/core?action=public-events&when=sometime&area=../../etc');
   assert.equal(JSON.parse(json.body).when,'all');
-  assert.deepEqual(seen,[{when:'week',area:'old-brooklyn'},{when:'',area:''}]);
+  const none = { cat:'',day:'',miles:'',mine:'' };
+  assert.deepEqual(seen,[{...none,when:'week',area:'old-brooklyn'},{...none,when:'',area:''}]);
 });
