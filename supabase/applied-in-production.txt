@@ -34,3 +34,4 @@
 20261207090000_photo_storage.sql
 20261208090000_guide_suburbs.sql
 20261209090000_events_search.sql
+20261209100000_owner_role_guard.sql
