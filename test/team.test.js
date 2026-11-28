@@ -119,3 +119,12 @@ test('admins ask one member, a neighborhood or everyone a question and see the a
   assert.equal(message.subject,'The Nabora team has a question for you');
   assert.match(message.text,/https:\/\/nabora.us\/#feed/);
 });
+
+test('no admin can change the platform owner’s role',async()=>{
+  await call('rina','invite_role',{ id:actors.jamal,role:'admin' });
+  await call('jamal','answer_role',{ id:(await call('jamal','bootstrap')).roleInvite.id,accept:true });
+  await assert.rejects(call('jamal','set_role',{ id:actors.rina,role:'' }),/platform owner/);
+  await assert.rejects(call('jamal','set_role',{ id:actors.rina,role:'moderator' }),/platform owner/);
+  assert.equal((await call('rina','bootstrap')).staff,'admin','the owner is still an admin');
+  await call('rina','set_role',{ id:actors.jamal,role:'' });
+});

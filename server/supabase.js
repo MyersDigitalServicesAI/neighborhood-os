@@ -5,6 +5,9 @@ export class Problem extends Error {
   }
 }
 
+// Supabase Auth's CAPTCHA token travels in gotrue_meta_security; nothing is added when there isn't one.
+const security = (captcha) => captcha ? { gotrue_meta_security: { captcha_token: captcha } } : {};
+
 export function supabaseAdapter(env, request = fetch) {
   const origin = env.SUPABASE_URL;
   const key = env.SUPABASE_PUBLISHABLE_KEY;
@@ -37,11 +40,11 @@ export function supabaseAdapter(env, request = fetch) {
   }
   return {
     configured: !!(origin && key),
-    login: (email, password) => call('/auth/v1/token?grant_type=password', { payload: { email, password } }),
-    signup: (email, password, challenge, redirect) => call('/auth/v1/signup?redirect_to=' + encodeURIComponent(redirect),
-      { payload: { email, password, code_challenge: challenge, code_challenge_method: 's256' } }),
-    recover: (email, challenge, redirect) => call('/auth/v1/recover?redirect_to=' + encodeURIComponent(redirect),
-      { payload: { email, code_challenge: challenge, code_challenge_method: 's256' } }),
+    login: (email, password, captcha) => call('/auth/v1/token?grant_type=password', { payload: { email, password, ...security(captcha) } }),
+    signup: (email, password, challenge, redirect, captcha) => call('/auth/v1/signup?redirect_to=' + encodeURIComponent(redirect),
+      { payload: { email, password, code_challenge: challenge, code_challenge_method: 's256', ...security(captcha) } }),
+    recover: (email, challenge, redirect, captcha) => call('/auth/v1/recover?redirect_to=' + encodeURIComponent(redirect),
+      { payload: { email, code_challenge: challenge, code_challenge_method: 's256', ...security(captcha) } }),
     exchange: (auth_code, code_verifier) => call('/auth/v1/token?grant_type=pkce', { payload: { auth_code, code_verifier } }),
     updatePassword: async (token, password) => {
       if (!origin || !key) throw new Problem(503, 'The service is being configured.');
