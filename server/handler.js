@@ -211,11 +211,11 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (!idPattern.test(id)) throw new Problem(404,'Photo unavailable.');
         const photo = await database.rpc(access,'image',{id});
         if (photo?.path && /^image\/(jpeg|png|webp)$/.test(photo.mime ?? '')) {
-          // The photo is in the bucket: send the browser a link to it that works for an hour. The redirect itself is
+          // The photo is in the bucket: send the browser a link to it that works for ten minutes. The redirect itself is
           // kept for a little less, so a cached redirect never points at an expired link.
           res.statusCode = 302;
-          res.setHeader('Location',await storage.sign(photo.path,3600));
-          res.setHeader('Cache-Control','private, max-age=3000');
+          res.setHeader('Location',await storage.sign(photo.path,600));
+          res.setHeader('Cache-Control','private, max-age=500');
           return res.end();
         }
         if (!photo?.data || !/^image\/(jpeg|png|webp)$/.test(photo.mime ?? '')) throw new Problem(404,'Photo unavailable.');
@@ -257,16 +257,18 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
         if (email.length > 254 || !emailPattern.test(email)) throw new Problem(400,'Enter a valid email address.');
         if (action !== 'recover' && (typeof body.password !== 'string' || body.password.length < (action === 'signup' ? 12 : 1)
           || utf8.encode(body.password).length > 72)) throw new Problem(400,'Use a valid password of up to 72 bytes. New passwords need 12 characters.');
+        // Only used once CAPTCHA protection is turned on in Supabase Auth; the sign-in forms don't send one yet.
+        const captcha = typeof body.captchaToken === 'string' && body.captchaToken.length <= 4096 ? body.captchaToken : undefined;
         if (action === 'login') {
-          session(res,await database.login(email,body.password));
+          session(res,await database.login(email,body.password,captcha));
           return reply(res,200,{ signedIn:true });
         }
         if (action === 'signup' && env.OPEN_SIGNUPS !== 'true') throw new Problem(403,'Public registration is closed.');
         const verifier = base64Url(crypto.getRandomValues(new Uint8Array(32)));
         const challenge = base64Url(await crypto.subtle.digest('SHA-256',utf8.encode(verifier)));
         const redirect = base + '/api/core?action=callback';
-        if (action === 'signup') await database.signup(email,body.password,challenge,redirect);
-        else await database.recover(email,challenge,redirect);
+        if (action === 'signup') await database.signup(email,body.password,challenge,redirect,captcha);
+        else await database.recover(email,challenge,redirect,captcha);
         res.setHeader('Set-Cookie',[cookie('pkce',verifier,3600),cookie('flow',action,3600)]);
         return reply(res,200,{ checkEmail:true });
       }

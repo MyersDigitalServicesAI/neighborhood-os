@@ -103,8 +103,8 @@ test('the server checks photo bytes, stores them in the bucket, and redirects to
   };
   const shown = await get(cookie.cookie);
   assert.equal(shown.statusCode,302);
-  assert.equal(shown.headers.location,'https://storage.example/'+actors.ava+'/'+id+'.jpg?expires=3600');
-  assert.equal(shown.headers['cache-control'],'private, max-age=3000');
+  assert.equal(shown.headers.location,'https://storage.example/'+actors.ava+'/'+id+'.jpg?expires=600');
+  assert.equal(shown.headers['cache-control'],'private, max-age=500');
   const other = (await database.login('taylor@neighborhood.test','local-fixture-pass')).access_token;
   assert.equal((await get('__Host-nh_access='+other)).statusCode,404);
 });
