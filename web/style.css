@@ -232,3 +232,5 @@ input[type=file]{padding:9px;border:1px dashed #c3ccba;border-radius:10px;backgr
 .team-prompt{border-color:#efcf9a;background:#fffaf0;margin-bottom:14px}.team-prompt h2{margin:4px 0 8px;font-size:1.15rem}
 .small-button{min-height:34px;padding:5px 11px;font-size:.84rem}
 .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+.events-filters .tabs{flex-wrap:nowrap;overflow-x:auto}.events-filters .check{flex:0 0 auto;display:flex;gap:8px;align-items:center;padding-bottom:10px}.events-filters input[type=date]{min-height:44px}

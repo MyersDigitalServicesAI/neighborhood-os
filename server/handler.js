@@ -5,10 +5,11 @@ import { unsubscribePage } from './unsubscribe-page.js';
 import { deliverPush, pushAdapter, pushHosts } from './push.js';
 import { gatherEvents } from './events.js';
 import { eventsPage } from './events-page.js';
+import { searchFilters } from './event-filters.js';
 import { foodPage, foodKinds } from './food-page.js';
 import { treesPage } from './trees-page.js';
 import { trustPage } from './trust-page.js';
-import { emptyPhotoTrash, photoBytes, storageAdapter } from './storage.js';
+import { emptyPhotoTrash, moveLegacyPhotos, photoBytes, storageAdapter } from './storage.js';
 
 const appOperations = new Set(['bootstrap','join','feed','post','create_post','close_post','reply','directory','my_businesses',
   'business','create_business','update_business','threads','thread','message','block','unblock','submit_review','report_review',
@@ -115,9 +116,10 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
       }
       if (req.method === 'GET' && (action === 'public-events' || action === 'events-page')) {
         // Public: events shared with all of Northeast Ohio, for anyone. Cached briefly at the edge.
-        const span = ['week','weekend'].includes(url.searchParams.get('when')) ? url.searchParams.get('when') : '';
+        const span = ['today','tomorrow','week','weekend'].includes(url.searchParams.get('when')) ? url.searchParams.get('when') : '';
         const place = /^[a-z0-9-]{2,40}$/.test(url.searchParams.get('area') ?? '') ? url.searchParams.get('area') : '';
-        const data = await database.publicEvents({ when:span,area:place });
+        const filters = searchFilters(url.searchParams);
+        const data = await database.publicEvents({ ...filters,when:filters.day ? '' : span,area:place });
         res.statusCode = 200;
         res.setHeader('Cache-Control','public, max-age=300, s-maxage=600');
         if (action === 'public-events') {
@@ -170,7 +172,12 @@ export function makeHandler({ env = globalThis.process?.env ?? {}, database = su
           console.error('Photo cleanup failed',error?.detail ?? error?.name ?? 'Error');
           return { photosRemoved:0,photoCleanupFailed:true };
         });
-        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders,...photos });
+        // Photos still stored only in the database are copied into the bucket.
+        const moved = await moveLegacyPhotos(database,storage).catch((error) => {
+          console.error('Photo move failed',error?.detail ?? error?.name ?? 'Error');
+          return { photosMoved:0,photoMoveFailed:true };
+        });
+        return reply(res,200,{ ...mail,...push,...purged,...digests,...reminders,...photos,...moved });
       }
       if (req.method === 'GET' && action === 'events') {
         // Daily job, early morning: post upcoming library events and ward community meetings into each neighborhood,

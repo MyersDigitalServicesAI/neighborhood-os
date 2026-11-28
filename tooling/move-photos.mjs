@@ -6,7 +6,7 @@
 //
 // The bytes stay in the database until a later update drops them, so the move can be undone by clearing stored_at.
 import { supabaseAdapter } from '../server/supabase.js';
-import { photoBytes, storageAdapter } from '../server/storage.js';
+import { legacyPath, moveLegacyPhotos, storageAdapter } from '../server/storage.js';
 
 export async function movePhotos({ database, storage, run = false, log = console.log, batch = 20 }) {
   if (!storage.enabled) throw new Error('Set SUPABASE_URL, SUPABASE_SECRET_KEY and PHOTO_BUCKET first.');
@@ -14,35 +14,14 @@ export async function movePhotos({ database, storage, run = false, log = console
   log('Before: '+JSON.stringify(before));
   if (!run) {
     const sample = await database.photos({ op:'legacy',limit:batch });
-    for (const photo of sample) log('Would move '+photo.id+' ('+photo.mime+') to '+target(photo));
+    for (const photo of sample) log('Would move '+photo.id+' ('+photo.mime+') to '+legacyPath(photo));
     log(before.table_only+' photo(s) to move. Dry run: nothing was changed. Add --run to move them.');
     return { moved:0,failed:0,before };
   }
-  let moved = 0;
-  const failed = new Set();
-  for (;;) {
-    const photos = (await database.photos({ op:'legacy',limit:batch })).filter((photo) => !failed.has(photo.id));
-    if (!photos.length) break;
-    for (const photo of photos) {
-      const path = target(photo);
-      try {
-        await storage.put(path,photoBytes(photo.mime,photo.data),photo.mime,{ upsert:true });
-        await database.photos({ op:'moved',id:photo.id,path });
-        moved++;
-        log('Moved '+photo.id+' to '+path);
-      } catch (error) {
-        failed.add(photo.id);
-        log('Could not move '+photo.id+': '+(error.detail ?? error.message));
-      }
-    }
-  }
+  const { photosMoved:moved,photosNotMoved:failed } = await moveLegacyPhotos(database,storage,{ batch,log });
   const after = await database.photos({ op:'status' });
   log('After: '+JSON.stringify(after));
-  return { moved,failed:failed.size,before,after };
-}
-
-function target(photo) {
-  return photo.owner+'/'+photo.id+'.'+({ 'image/jpeg':'jpg','image/png':'png','image/webp':'webp' })[photo.mime];
+  return { moved,failed,before,after };
 }
 
 if (import.meta.url === 'file://'+process.argv[1]) {
